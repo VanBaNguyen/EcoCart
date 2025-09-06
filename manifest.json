@@ -1,0 +1,46 @@
+{
+  "manifest_version": 3,
+  "name": "Eco-Friendly Alternatives",
+  "version": "1.0",
+  "description": "Find sustainable alternatives to products on Amazon and other shopping sites",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://*.amazon.com/*",
+    "https://*.amazon.co.uk/*",
+    "https://*.amazon.de/*",
+    "https://*.amazon.fr/*",
+    "https://*.amazon.ca/*",
+    "https://*.amazon.com.au/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.amazon.com/*",
+        "https://*.amazon.co.uk/*",
+        "https://*.amazon.de/*",
+        "https://*.amazon.fr/*",
+        "https://*.amazon.ca/*",
+        "https://*.amazon.com.au/*"
+      ],
+      "js": ["content.js"],
+      "css": ["content.css"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Eco-Friendly Alternatives"
+  },
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": false
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["alternatives.json"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

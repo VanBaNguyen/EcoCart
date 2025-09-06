@@ -1,0 +1,252 @@
+{
+  "categories": {
+    "home": [
+      {
+        "name": "EcoVessel Water Bottles",
+        "description": "Stainless steel water bottles that keep drinks cold for 24+ hours, reducing single-use plastic waste",
+        "benefits": ["BPA-free", "Dishwasher safe", "Lifetime warranty", "Recyclable"],
+        "price": "$25-45",
+        "url": "https://ecovessel.com",
+        "image": "https://ecovessel.com/wp-content/uploads/2021/03/insulated-bottle-32oz-1.jpg"
+      },
+      {
+        "name": "Bamboo Kitchen Utensils Set",
+        "description": "Sustainable bamboo cooking utensils that are naturally antimicrobial and biodegradable",
+        "benefits": ["100% bamboo", "Antimicrobial", "Biodegradable", "Non-toxic"],
+        "price": "$15-30",
+        "url": "https://www.bambu.com",
+        "image": "https://www.bambu.com/cdn/shop/products/bamboo-utensil-set.jpg"
+      },
+      {
+        "name": "Eco-Friendly Cleaning Products",
+        "description": "Plant-based cleaning solutions that are safe for your family and the environment",
+        "benefits": ["Plant-based", "Biodegradable", "Non-toxic", "Refillable packaging"],
+        "price": "$8-20",
+        "url": "https://www.blueland.com",
+        "image": "https://www.blueland.com/cdn/shop/products/clean-starter-kit.jpg"
+      }
+    ],
+    "clothing": [
+      {
+        "name": "Patagonia Sustainable Clothing",
+        "description": "Outdoor clothing made from recycled materials with fair trade practices",
+        "benefits": ["Recycled materials", "Fair trade", "Repair program", "1% for the Planet"],
+        "price": "$50-200",
+        "url": "https://www.patagonia.com",
+        "image": "https://www.patagonia.com/dw/image/v2/BDJB_PRD/on/demandware.static/-/Sites-patagonia-master/default/dw1234567890/images/hi-res/12345.jpg"
+      },
+      {
+        "name": "Allbirds Sustainable Shoes",
+        "description": "Comfortable shoes made from natural materials like merino wool and eucalyptus tree fiber",
+        "benefits": ["Natural materials", "Carbon neutral", "Machine washable", "Recyclable"],
+        "price": "$95-150",
+        "url": "https://www.allbirds.com",
+        "image": "https://cdn.allbirds.com/image/upload/f_auto,q_auto/v1/production/colorway/en-US/images/1234567890/1"
+      },
+      {
+        "name": "Reformation Sustainable Fashion",
+        "description": "Trendy clothing made from sustainable materials with transparent supply chains",
+        "benefits": ["Sustainable materials", "Transparent supply chain", "Carbon neutral shipping", "Recycling program"],
+        "price": "$50-300",
+        "url": "https://www.thereformation.com",
+        "image": "https://www.thereformation.com/cdn/shop/products/sustainable-dress.jpg"
+      }
+    ],
+    "beauty": [
+      {
+        "name": "Lush Cosmetics",
+        "description": "Handmade cosmetics with minimal packaging and ethical sourcing",
+        "benefits": ["Minimal packaging", "Ethical sourcing", "Cruelty-free", "Vegan options"],
+        "price": "$10-50",
+        "url": "https://www.lush.com",
+        "image": "https://www.lush.com/cdn/shop/products/vegan-shampoo-bar.jpg"
+      },
+      {
+        "name": "Weleda Natural Skincare",
+        "description": "Organic skincare products made from biodynamic ingredients",
+        "benefits": ["Organic certified", "Biodynamic farming", "Cruelty-free", "Recyclable packaging"],
+        "price": "$15-40",
+        "url": "https://www.weleda.com",
+        "image": "https://www.weleda.com/cdn/shop/products/organic-face-cream.jpg"
+      },
+      {
+        "name": "Package Free Shop",
+        "description": "Zero-waste personal care products with refillable containers",
+        "benefits": ["Zero waste", "Refillable", "Plastic-free", "Compostable"],
+        "price": "$5-25",
+        "url": "https://packagefreeshop.com",
+        "image": "https://packagefreeshop.com/cdn/shop/products/zero-waste-deodorant.jpg"
+      }
+    ],
+    "electronics": [
+      {
+        "name": "Fairphone Modular Smartphone",
+        "description": "Ethically sourced smartphone designed for longevity and repairability",
+        "benefits": ["Modular design", "Fair trade materials", "Long-term support", "Recyclable"],
+        "price": "$600-800",
+        "url": "https://www.fairphone.com",
+        "image": "https://www.fairphone.com/cdn/shop/products/fairphone-4.jpg"
+      },
+      {
+        "name": "Framework Laptop",
+        "description": "Repairable and upgradeable laptop with modular components",
+        "benefits": ["Modular design", "Repairable", "Upgradeable", "Recyclable parts"],
+        "price": "$1000-1500",
+        "url": "https://frame.work",
+        "image": "https://frame.work/cdn/shop/products/framework-laptop.jpg"
+      },
+      {
+        "name": "Solar Power Banks",
+        "description": "Portable solar chargers for eco-friendly device charging",
+        "benefits": ["Solar powered", "Waterproof", "Durable", "Renewable energy"],
+        "price": "$30-100",
+        "url": "https://www.goalzero.com",
+        "image": "https://www.goalzero.com/cdn/shop/products/solar-powerbank.jpg"
+      }
+    ],
+    "garden": [
+      {
+        "name": "Seed Starting Kits",
+        "description": "Biodegradable seed starting pots and organic growing supplies",
+        "benefits": ["Biodegradable", "Organic", "Compostable", "Non-GMO seeds"],
+        "price": "$15-35",
+        "url": "https://www.burpee.com",
+        "image": "https://www.burpee.com/cdn/shop/products/seed-starting-kit.jpg"
+      },
+      {
+        "name": "Compost Bins",
+        "description": "Efficient composting systems for reducing food waste",
+        "benefits": ["Reduces waste", "Creates fertilizer", "Odor-free", "Easy to use"],
+        "price": "$50-150",
+        "url": "https://www.epicgardening.com",
+        "image": "https://www.epicgardening.com/cdn/shop/products/compost-bin.jpg"
+      },
+      {
+        "name": "Rain Barrels",
+        "description": "Water collection systems for sustainable garden irrigation",
+        "benefits": ["Water conservation", "Reduces runoff", "Free water", "Easy installation"],
+        "price": "$80-200",
+        "url": "https://www.rainbarrel.com",
+        "image": "https://www.rainbarrel.com/cdn/shop/products/rain-barrel.jpg"
+      }
+    ],
+    "office": [
+      {
+        "name": "Recycled Paper Products",
+        "description": "Office supplies made from 100% recycled materials",
+        "benefits": ["100% recycled", "FSC certified", "Chlorine-free", "Recyclable"],
+        "price": "$5-25",
+        "url": "https://www.greenlinepaper.com",
+        "image": "https://www.greenlinepaper.com/cdn/shop/products/recycled-notebook.jpg"
+      },
+      {
+        "name": "Bamboo Desk Organizers",
+        "description": "Sustainable bamboo desk accessories for organized workspaces",
+        "benefits": ["Bamboo material", "Durable", "Biodegradable", "Non-toxic"],
+        "price": "$20-60",
+        "url": "https://www.bambu.com",
+        "image": "https://www.bambu.com/cdn/shop/products/bamboo-desk-organizer.jpg"
+      },
+      {
+        "name": "Refillable Pens",
+        "description": "Eco-friendly writing instruments with refillable ink cartridges",
+        "benefits": ["Refillable", "Reduces waste", "Long-lasting", "Recyclable"],
+        "price": "$10-30",
+        "url": "https://www.pilotpen.com",
+        "image": "https://www.pilotpen.com/cdn/shop/products/refillable-pen.jpg"
+      }
+    ],
+    "general": [
+      {
+        "name": "B-Corp Certified Brands",
+        "description": "Companies meeting the highest standards of social and environmental performance",
+        "benefits": ["B-Corp certified", "Social responsibility", "Environmental impact", "Transparency"],
+        "price": "Varies",
+        "url": "https://bcorporation.net",
+        "image": "https://bcorporation.net/cdn/shop/products/b-corp-logo.jpg"
+      },
+      {
+        "name": "Fair Trade Products",
+        "description": "Products that ensure fair wages and working conditions for producers",
+        "benefits": ["Fair wages", "Safe working conditions", "Community development", "Environmental protection"],
+        "price": "Varies",
+        "url": "https://www.fairtrade.net",
+        "image": "https://www.fairtrade.net/cdn/shop/products/fair-trade-logo.jpg"
+      }
+    ]
+  },
+  "keywords": {
+    "plastic": [
+      {
+        "name": "Stasher Silicone Bags",
+        "description": "Reusable silicone storage bags that replace single-use plastic bags",
+        "benefits": ["Reusable", "Dishwasher safe", "Freezer safe", "BPA-free"],
+        "price": "$12-25",
+        "url": "https://www.stasherbag.com",
+        "image": "https://www.stasherbag.com/cdn/shop/products/silicone-bag-set.jpg"
+      }
+    ],
+    "cotton": [
+      {
+        "name": "Organic Cotton Alternatives",
+        "description": "Clothing and textiles made from organic cotton without harmful pesticides",
+        "benefits": ["Organic certified", "Pesticide-free", "Water efficient", "Biodegradable"],
+        "price": "$20-100",
+        "url": "https://www.organiccottonplus.com",
+        "image": "https://www.organiccottonplus.com/cdn/shop/products/organic-cotton-tshirt.jpg"
+      }
+    ],
+    "bamboo": [
+      {
+        "name": "Bamboo Products",
+        "description": "Sustainable bamboo alternatives to traditional materials",
+        "benefits": ["Fast growing", "Renewable", "Biodegradable", "Antimicrobial"],
+        "price": "$10-50",
+        "url": "https://www.bambu.com",
+        "image": "https://www.bambu.com/cdn/shop/products/bamboo-products.jpg"
+      }
+    ],
+    "cleaning": [
+      {
+        "name": "Eco-Friendly Cleaning",
+        "description": "Plant-based cleaning products that are safe and effective",
+        "benefits": ["Plant-based", "Non-toxic", "Biodegradable", "Concentrated"],
+        "price": "$8-25",
+        "url": "https://www.blueland.com",
+        "image": "https://www.blueland.com/cdn/shop/products/eco-cleaning-kit.jpg"
+      }
+    ]
+  },
+  "brands": {
+    "amazon": [
+      {
+        "name": "Thrive Market",
+        "description": "Online marketplace for healthy, sustainable products with transparent sourcing",
+        "benefits": ["Curated selection", "Transparent sourcing", "Member discounts", "Carbon neutral shipping"],
+        "price": "Varies",
+        "url": "https://www.thrivemarket.com",
+        "image": "https://www.thrivemarket.com/cdn/shop/products/sustainable-products.jpg"
+      }
+    ],
+    "nike": [
+      {
+        "name": "Allbirds",
+        "description": "Sustainable footwear made from natural materials",
+        "benefits": ["Natural materials", "Carbon neutral", "Comfortable", "Recyclable"],
+        "price": "$95-150",
+        "url": "https://www.allbirds.com",
+        "image": "https://www.allbirds.com/cdn/shop/products/sustainable-sneakers.jpg"
+      }
+    ],
+    "apple": [
+      {
+        "name": "Fairphone",
+        "description": "Ethically sourced smartphone with modular design",
+        "benefits": ["Fair trade", "Modular", "Repairable", "Long-term support"],
+        "price": "$600-800",
+        "url": "https://www.fairphone.com",
+        "image": "https://www.fairphone.com/cdn/shop/products/fairphone-4.jpg"
+      }
+    ]
+  }
+}
