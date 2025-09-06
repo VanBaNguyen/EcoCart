@@ -101,19 +101,48 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  // Kick off once popup opens: get active tab and use tab.title as product name (user can refine later)
-  (async () => {
-    const healthy = await ensureBackend();
-    if (!healthy) return;
-    const { url, title } = await getActiveTabInfo();
-    if (!url) {
-      console.warn('[EcoCart] No active tab URL detected.');
-      setEcoScaleText('Error (no URL)');
-      return;
-    }
-    console.log('[EcoCart] Proceeding with product:', { name: title || 'Current Page', link: url });
-    judgeThenSearchIfNeeded(title || 'Current Page', url);
-  })();
+   // Check if URL is Amazon
+   function isAmazonUrl(url) {
+     if (!url) return false;
+     try {
+       const urlObj = new URL(url);
+       return urlObj.hostname.includes('amazon.com') || 
+              urlObj.hostname.includes('amazon.ca') || 
+              urlObj.hostname.includes('amazon.co.uk') || 
+              urlObj.hostname.includes('amazon.de') || 
+              urlObj.hostname.includes('amazon.fr') || 
+              urlObj.hostname.includes('amazon.it') || 
+              urlObj.hostname.includes('amazon.es') || 
+              urlObj.hostname.includes('amazon.co.jp') || 
+              urlObj.hostname.includes('amazon.in') || 
+              urlObj.hostname.includes('amazon.com.au');
+     } catch (e) {
+       return false;
+     }
+   }
+
+   // Kick off once popup opens: get active tab and use tab.title as product name (user can refine later)
+   (async () => {
+     const healthy = await ensureBackend();
+     if (!healthy) return;
+     const { url, title } = await getActiveTabInfo();
+     if (!url) {
+       console.warn('[EcoCart] No active tab URL detected.');
+       setEcoScaleText('Error (no URL)');
+       return;
+     }
+     
+     // Check if it's an Amazon URL
+     if (!isAmazonUrl(url)) {
+       console.log('[EcoCart] Non-Amazon URL detected:', url);
+       setEcoScaleText('Website is not Supported');
+       if (urlTitle) urlTitle.textContent = `URL: ${url}`;
+       return;
+     }
+     
+     console.log('[EcoCart] Proceeding with Amazon product:', { name: title || 'Current Page', link: url });
+     judgeThenSearchIfNeeded(title || 'Current Page', url);
+   })();
   
   const productPanel = document.querySelector('.product-panel');
   const leftArrow = document.querySelector('.left-arrow');
