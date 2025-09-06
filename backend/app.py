@@ -212,26 +212,28 @@ def parse_ecoscore_from_text(text: str) -> float:
 
 
 def ecoscore_from_impact(impact: str) -> float:
-    mapping = {"Low": 4.5, "Medium": 3.0, "High": 1.5}
+    # Slightly stricter baseline mapping
+    mapping = {"Low": 4.2, "Medium": 2.8, "High": 1.3}
     return mapping.get(impact, 3.0)
 
 
 def apply_material_heuristics_to_ecoscore(score: float, material_hint: str) -> float:
+    # Slightly stricter adjustments
     adjusted = score
     if material_hint == "paper_straw":
-        adjusted = max(adjusted, 4.5)
-    elif material_hint == "metal":
         adjusted = max(adjusted, 4.2)
+    elif material_hint == "metal":
+        adjusted = max(adjusted, 3.8)
     elif material_hint == "bamboo":
-        adjusted = max(adjusted, 4.5)
+        adjusted = max(adjusted, 4.4)
     elif material_hint == "glass":
-        adjusted = max(adjusted, 4.0)
+        adjusted = max(adjusted, 3.8)
     elif material_hint == "silicone":
-        adjusted = max(adjusted, 3.5)
+        adjusted = max(adjusted, 3.2)
     elif material_hint == "pla":
-        adjusted = min(max(adjusted, 2.5), 3.5)
+        adjusted = min(max(adjusted, 2.4), 3.0)
     elif material_hint == "plastic":
-        adjusted = min(adjusted, 2.0)
+        adjusted = min(adjusted, 1.9)
     if adjusted < 1.0:
         adjusted = 1.0
     if adjusted > 5.0:
@@ -322,7 +324,8 @@ def search() -> Tuple[str, int]:
             ecoscore_val = ecoscore_from_impact(impact_label)
         ecoscore_val = apply_material_heuristics_to_ecoscore(ecoscore_val, material_hint)
 
-        if impact_label == "Low":
+        # Early return if ecoscore is good enough
+        if ecoscore_val >= 3.0:
             result: Dict[str, Any] = {
                 "product": {"name": product_name, "link": product_link},
                 "impact": impact_label,

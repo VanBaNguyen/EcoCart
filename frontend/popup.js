@@ -90,13 +90,23 @@ document.addEventListener('DOMContentLoaded', function() {
       }
 
       // Update UI: prefer ecoscore if present, else impact
-      if (typeof data.ecoscore === 'number') {
-        setEcoScaleText(String(data.ecoscore));
-      } else {
-        setEcoScaleText(data.impact || 'Unknown');
-      }
+      const score = typeof data.ecoscore === 'number' ? data.ecoscore : null;
+      if (score !== null) setEcoScaleText(String(score));
+      else setEcoScaleText(data.impact || 'Unknown');
 
-      if (Array.isArray(data.results)) {
+      // If ecoscore >= 3.0, hide swipe UI and show a thank-you message; otherwise show alternatives if any
+      const swipeInterface = document.querySelector('.swipe-interface');
+      if (score !== null && score >= 3.0) {
+        if (swipeInterface) swipeInterface.style.display = 'none';
+        const thankYou = document.createElement('div');
+        thankYou.style.marginTop = '20px';
+        thankYou.style.textAlign = 'center';
+        thankYou.style.color = '#ffffff';
+        thankYou.style.fontSize = '20px';
+        thankYou.style.textShadow = '0 1px 2px rgba(0,0,0,0.2)';
+        thankYou.textContent = 'Thanks for choosing an environmentally friendlier option!';
+        document.querySelector('.popup-container')?.appendChild(thankYou);
+      } else if (Array.isArray(data.results)) {
         console.log('Alternatives:', data.results);
       }
     } catch (e) {
