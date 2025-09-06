@@ -9,5 +9,13 @@
     "default_title": "Simple Extension"
   },
   
-  "permissions": []
+  "permissions": [
+    "storage",
+    "activeTab",
+    "tabs",
+    "http://localhost:5057/*",
+    "http://127.0.0.1:5057/*",
+    "http://localhost:5060/*",
+    "http://127.0.0.1:5060/*"
+  ]
 }

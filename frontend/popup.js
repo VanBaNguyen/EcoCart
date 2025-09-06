@@ -1,6 +1,119 @@
 // Simple Firefox extension popup script
 document.addEventListener('DOMContentLoaded', function() {
   console.log('Simple Firefox extension popup loaded');
+  const ecoscaleTitle = document.querySelector('.ecoscale-title');
+  const urlTitle = document.querySelector('.url-title');
+  const CANDIDATE_BASE_URLS = [
+    'http://localhost:5057',
+    'http://127.0.0.1:5057',
+    'http://localhost:5060',
+    'http://127.0.0.1:5060'
+  ];
+  let BASE_URL = CANDIDATE_BASE_URLS[0];
+
+  function setEcoScaleText(text) {
+    if (ecoscaleTitle) ecoscaleTitle.textContent = `EcoScale: ${text}`;
+  }
+
+  async function ensureBackend() {
+    for (const candidate of CANDIDATE_BASE_URLS) {
+      const healthUrl = `${candidate}/health`;
+      console.log('[EcoCart] Pinging backend health:', healthUrl);
+      try {
+        const r = await fetch(healthUrl, { method: 'GET' });
+        console.log('[EcoCart] Health status:', r.status, 'for', candidate);
+        if (!r.ok) continue;
+        BASE_URL = candidate;
+        return true;
+      } catch (e) {
+        console.warn('[EcoCart] Health check failed for', candidate, e);
+      }
+    }
+    console.error('[EcoCart] Backend not reachable on any candidate host.');
+    setEcoScaleText('Error (backend not reachable)');
+    return false;
+  }
+
+  async function getActiveTabInfo() {
+    console.log('[EcoCart] Querying active tab...');
+    return new Promise((resolve) => {
+      try {
+        browser.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
+          const tab = tabs && tabs[0];
+          const info = { url: tab ? tab.url : '', title: tab ? tab.title : '' };
+          console.log('[EcoCart] Active tab (browser):', info);
+          resolve(info);
+        }).catch(() => resolve({ url: '', title: '' }));
+      } catch (e) {
+        // Fallback for Chrome-like API in some contexts
+        try {
+          chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            const tab = tabs && tabs[0];
+            const info = { url: tab ? tab.url : '', title: tab ? tab.title : '' };
+            console.log('[EcoCart] Active tab (chrome):', info);
+            resolve(info);
+          });
+        } catch (e2) {
+          console.error('[EcoCart] tabs.query failed:', e, e2);
+          resolve({ url: '', title: '' });
+        }
+      }
+    });
+  }
+
+  async function judgeThenSearchIfNeeded(name, link) {
+    try {
+      // Call /search which always judges first and may skip alternatives
+      if (urlTitle) urlTitle.textContent = `URL: ${link || '(none)'}`;
+      setEcoScaleText('Loading...');
+      const payload = { product: { name, link }, limit: 5, model: 'gpt-4o-mini' };
+      const url = `${BASE_URL}/search`;
+      console.log('[EcoCart] Calling /search:', url, 'payload:', payload);
+      const res = await fetch(`${BASE_URL}/search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      console.log('[EcoCart] /search status:', res.status);
+      const raw = await res.text();
+      console.log('[EcoCart] /search raw body:', raw);
+      if (!res.ok) {
+        setEcoScaleText(`Error (status ${res.status})`);
+        throw new Error(`Search failed: ${res.status} body=${raw}`);
+      }
+      let data;
+      try {
+        data = JSON.parse(raw);
+      } catch (e) {
+        setEcoScaleText('Error (invalid JSON)');
+        throw new Error('Search returned non-JSON');
+      }
+
+      // Update UI
+      setEcoScaleText(data.impact || 'Unknown');
+
+      if (Array.isArray(data.results)) {
+        console.log('Alternatives:', data.results);
+      }
+    } catch (e) {
+      console.error('[EcoCart] Error in judgeThenSearchIfNeeded:', e);
+      setEcoScaleText('Error');
+    }
+  }
+
+  // Kick off once popup opens: get active tab and use tab.title as product name (user can refine later)
+  (async () => {
+    const healthy = await ensureBackend();
+    if (!healthy) return;
+    const { url, title } = await getActiveTabInfo();
+    if (!url) {
+      console.warn('[EcoCart] No active tab URL detected.');
+      setEcoScaleText('Error (no URL)');
+      return;
+    }
+    console.log('[EcoCart] Proceeding with product:', { name: title || 'Current Page', link: url });
+    judgeThenSearchIfNeeded(title || 'Current Page', url);
+  })();
   
   const productPanel = document.querySelector('.product-panel');
   const leftArrow = document.querySelector('.left-arrow');
