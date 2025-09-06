@@ -96,6 +96,8 @@ For alternatives requests, the response may also include the original product co
     "name": "Fidqiog 150 Pcs Plastic Straws, Flexible Bendy Straws",
     "link": "https://www.amazon.ca/Fidqiog-Flexible-Slushies-Smoothies-Disposable/dp/B0F4K9XWBS?th=1"
   },
+  "impact": "Medium",
+  "ecoscore": 3.2,
   "results": [
     { "name": "Reusable Metal Straw Set", "url": "https://brand.example/product/metal-straw", "tld": "example" }
   ]

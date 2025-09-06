@@ -89,8 +89,12 @@ document.addEventListener('DOMContentLoaded', function() {
         throw new Error('Search returned non-JSON');
       }
 
-      // Update UI
-      setEcoScaleText(data.impact || 'Unknown');
+      // Update UI: prefer ecoscore if present, else impact
+      if (typeof data.ecoscore === 'number') {
+        setEcoScaleText(String(data.ecoscore));
+      } else {
+        setEcoScaleText(data.impact || 'Unknown');
+      }
 
       if (Array.isArray(data.results)) {
         console.log('Alternatives:', data.results);
