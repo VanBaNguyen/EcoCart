@@ -4,13 +4,15 @@ import logging
 import re
 import time
 from typing import Any, Dict, List, Tuple
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urljoin
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from dotenv import load_dotenv
 from openai import OpenAI, OpenAIError
 import tldextract
+import requests
+from bs4 import BeautifulSoup
 
 
 load_dotenv()
@@ -101,6 +103,36 @@ def extract_items_from_text(text: str) -> List[Dict[str, str]]:
             dedup_urls.append(u)
     items = [{"name": normalize_name_from_url(u), "url": u} for u in dedup_urls]
     return items
+
+
+def fetch_og_image(target_url: str) -> str:
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+        }
+        resp = requests.get(target_url, headers=headers, timeout=6)
+        if not resp.ok:
+            return ""
+        html = resp.text or ""
+        soup = BeautifulSoup(html, "html.parser")
+        # Try Open Graph first
+        og = soup.find("meta", attrs={"property": "og:image"})
+        if og and og.get("content"):
+            return urljoin(target_url, og.get("content"))
+        og2 = soup.find("meta", attrs={"property": "og:image:secure_url"})
+        if og2 and og2.get("content"):
+            return urljoin(target_url, og2.get("content"))
+        tw = soup.find("meta", attrs={"name": "twitter:image"})
+        if tw and tw.get("content"):
+            return urljoin(target_url, tw.get("content"))
+        # Fallback to first image on page
+        img = soup.find("img")
+        if img and img.get("src"):
+            return urljoin(target_url, img.get("src"))
+        return ""
+    except Exception as e:
+        logger.debug("OG image fetch failed for %s: %s", target_url, e)
+        return ""
 
 
 def build_prompt(user_query: str, max_results: int) -> str:
@@ -397,6 +429,11 @@ def search() -> Tuple[str, int]:
 
     for item in items:
         item["tld"] = compute_top_level_domain(item.get("url", ""))
+        # Enrich with preview image if possible
+        if item.get("url"):
+            preview = fetch_og_image(item["url"])
+            if preview:
+                item["image"] = preview
 
     logger.debug("Extracted items: %s", json.dumps(items, indent=2))
 
