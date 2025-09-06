@@ -117,11 +117,54 @@ document.addEventListener('DOMContentLoaded', function() {
         if (actions) actions.style.display = 'block';
         const btn = document.getElementById('find-eco-btn');
         if (btn && !btn.dataset.bound) {
-          btn.addEventListener('click', () => {
-            if (swipeInterface) swipeInterface.style.display = 'flex';
-            // also reveal add-to-cart section
-            const addToCart = document.querySelector('.add-to-cart-section');
-            if (addToCart) addToCart.style.display = 'block';
+          btn.addEventListener('click', async () => {
+            // Call search again to get alternatives (backend already judged first);
+            // we also want to display the first alternative and compute New EcoScore
+            try {
+              setEcoScaleText('Finding alternatives...');
+              const altPayload = { product: { name, link }, limit: 5, model: 'gpt-4o-mini' };
+              const altRes = await fetch(`${BASE_URL}/search`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(altPayload)
+              });
+              const altRaw = await altRes.text();
+              console.log('[EcoCart] /search (on-click) raw body:', altRaw);
+              if (!altRes.ok) throw new Error(`alt search failed: ${altRes.status}`);
+              let altData;
+              try { altData = JSON.parse(altRaw); } catch (_) { throw new Error('alt non-JSON'); }
+
+              const altSummary = document.querySelector('.alt-summary');
+              const altNameEl = document.querySelector('.alt-name');
+              const altScoreEl = document.querySelector('.alt-ecoscore');
+              if (altSummary && altNameEl && altScoreEl) {
+                altSummary.style.display = 'block';
+                const first = Array.isArray(altData.results) && altData.results.length > 0 ? altData.results[0] : null;
+                const newScore = typeof altData.ecoscore === 'number' ? altData.ecoscore : null;
+                if (newScore !== null) setEcoScaleText(`New EcoScore: ${newScore}`);
+                if (first) {
+                  altNameEl.textContent = first.name || 'Alternative';
+                  altScoreEl.textContent = newScore !== null ? `New EcoScore: ${newScore}` : '';
+                  // Attach link to green arrow
+                  const rightArrow = document.querySelector('.right-arrow');
+                  if (rightArrow && first.url) {
+                    rightArrow.style.cursor = 'pointer';
+                    rightArrow.addEventListener('click', () => {
+                      try { browser.tabs.create({ url: first.url }); } catch (e) {
+                        try { chrome.tabs.create({ url: first.url }); } catch (e2) {}
+                      }
+                    }, { once: true });
+                  }
+                }
+              }
+
+              if (swipeInterface) swipeInterface.style.display = 'flex';
+              const addToCart = document.querySelector('.add-to-cart-section');
+              if (addToCart) addToCart.style.display = 'block';
+            } catch (err) {
+              console.error('[EcoCart] Find alternatives failed:', err);
+              setEcoScaleText('Error');
+            }
           });
           btn.dataset.bound = '1';
         }
