@@ -94,10 +94,15 @@ document.addEventListener('DOMContentLoaded', function() {
       if (score !== null) setEcoScaleText(String(score));
       else setEcoScaleText(data.impact || 'Unknown');
 
-      // If ecoscore >= 3.0, hide swipe UI and show a thank-you message; otherwise show alternatives if any
+      // If ecoscore >= 3.0, hide swipe UI and show a thank-you message; 
+      // If ecoscore < 3.0, hide swipe UI and show a button to reveal it on demand
       const swipeInterface = document.querySelector('.swipe-interface');
       if (score !== null && score >= 3.0) {
         if (swipeInterface) swipeInterface.style.display = 'none';
+        const actions = document.querySelector('.ecoscore-actions');
+        if (actions) actions.style.display = 'none';
+        const btnHide = document.getElementById('find-eco-btn');
+        if (btnHide) btnHide.style.display = 'none';
         const thankYou = document.createElement('div');
         thankYou.style.marginTop = '20px';
         thankYou.style.textAlign = 'center';
@@ -106,6 +111,24 @@ document.addEventListener('DOMContentLoaded', function() {
         thankYou.style.textShadow = '0 1px 2px rgba(0,0,0,0.2)';
         thankYou.textContent = 'Thanks for choosing an environmentally friendlier option!';
         document.querySelector('.popup-container')?.appendChild(thankYou);
+      } else if (score !== null && score < 3.0) {
+        if (swipeInterface) swipeInterface.style.display = 'none';
+        const actions = document.querySelector('.ecoscore-actions');
+        if (actions) actions.style.display = 'block';
+        const btn = document.getElementById('find-eco-btn');
+        if (btn && !btn.dataset.bound) {
+          btn.addEventListener('click', () => {
+            if (swipeInterface) swipeInterface.style.display = 'flex';
+            // also reveal add-to-cart section
+            const addToCart = document.querySelector('.add-to-cart-section');
+            if (addToCart) addToCart.style.display = 'block';
+          });
+          btn.dataset.bound = '1';
+        }
+        if (btn) btn.style.display = 'inline-block';
+        if (Array.isArray(data.results)) {
+          console.log('Alternatives (preloaded):', data.results);
+        }
       } else if (Array.isArray(data.results)) {
         console.log('Alternatives:', data.results);
       }
