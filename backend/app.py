@@ -135,14 +135,16 @@ def build_judge_prompt(product_name: str, product_link: str) -> str:
     name_line = f"Product: {product_name.strip()}" if product_name else "Product: (unknown name)"
     link_line = f"Link: {product_link.strip()}" if product_link else "Link: (none provided)"
     instruction = (
-        "Classify the product's likely negative environmental impact as one of: Low, Medium, or High.\n"
-        "Use this rubric:\n"
-        "- Low: reusable metal/bamboo/glass/silicone, paper straws, certified home-compostable items.\n"
-        "- Medium: bio-plastics/PLA (industrial composting), mixed/unknown materials with some reuse potential.\n"
-        "- High: disposable plastic or single-use plastic-heavy items without credible sustainability claims.\n"
-        "Consider reusability, recyclability/compostability, lifecycle, packaging, and certifications.\n"
-        "If the product appears to be paper drinking straws, classify Low.\n"
-        "Respond with EXACTLY one word: Low, Medium, or High. No explanations."
+        "Rate the product's environmental friendliness with a single Ecoscore between 1.0 and 5.0 (decimals allowed).\n"
+        "Use this rubric strictly:\n"
+        "1.0–1.9: predominantly single-use plastic; non-recyclable; no credible sustainability claims.\n"
+        "2.0–2.9: disposable plastic-heavy; limited recyclability or greenwashing; short lifespan.\n"
+        "3.0–3.9: mixed/unknown materials; partial recyclability; some reuse potential; average footprint.\n"
+        "4.0–4.4: largely sustainable materials (paper, glass, silicone), reusable or recyclable; credible claims.\n"
+        "4.5–5.0: highly sustainable (durable metal/bamboo/glass, certified compostable), long lifespan, minimal waste.\n"
+        "Consider materials, reusability, recyclability/compostability, lifecycle/durability, packaging, and certifications.\n"
+        "If the product appears to be paper drinking straws, ensure Ecoscore ≥ 4.5 barring contradictory evidence.\n"
+        "Respond ONLY with: Ecoscore: <number> (e.g., Ecoscore: 4.5). No explanations."
     )
     return f"{name_line}\n{link_line}\n\n{instruction}"
 
@@ -183,6 +185,58 @@ def parse_impact_label(text: str) -> str:
         if t in ("low", "medium", "high"):
             return t.capitalize()
     return "Medium"
+
+
+def parse_ecoscore_from_text(text: str) -> float:
+    try:
+        # Look for a number between 1 and 5 (optionally with decimals). Prioritize patterns near 'ecoscore'.
+        if not text:
+            return 0.0
+        lowered = text.lower()
+        near_score = re.search(r"ecoscore\D*([1-5](?:\.\d+)?)", lowered)
+        if near_score:
+            val = float(near_score.group(1))
+            if 1.0 <= val <= 5.0:
+                return val
+        # Generic number search
+        for match in re.finditer(r"\b([1-5](?:\.\d+)?)\b", lowered):
+            try:
+                val = float(match.group(1))
+                if 1.0 <= val <= 5.0:
+                    return val
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return 0.0
+
+
+def ecoscore_from_impact(impact: str) -> float:
+    mapping = {"Low": 4.5, "Medium": 3.0, "High": 1.5}
+    return mapping.get(impact, 3.0)
+
+
+def apply_material_heuristics_to_ecoscore(score: float, material_hint: str) -> float:
+    adjusted = score
+    if material_hint == "paper_straw":
+        adjusted = max(adjusted, 4.5)
+    elif material_hint == "metal":
+        adjusted = max(adjusted, 4.2)
+    elif material_hint == "bamboo":
+        adjusted = max(adjusted, 4.5)
+    elif material_hint == "glass":
+        adjusted = max(adjusted, 4.0)
+    elif material_hint == "silicone":
+        adjusted = max(adjusted, 3.5)
+    elif material_hint == "pla":
+        adjusted = min(max(adjusted, 2.5), 3.5)
+    elif material_hint == "plastic":
+        adjusted = min(adjusted, 2.0)
+    if adjusted < 1.0:
+        adjusted = 1.0
+    if adjusted > 5.0:
+        adjusted = 5.0
+    return round(adjusted, 2)
 
 
 @app.route("/health", methods=["GET"])
@@ -255,7 +309,8 @@ def search() -> Tuple[str, int]:
                 judge_text = ""
         print("=== OpenAI judge output_text ===")
         print(judge_text)
-        impact_label = parse_impact_label(judge_text or "")
+        impact_label = parse_impact_label(judge_text or "")  # kept for compatibility in response
+        ecoscore_val = parse_ecoscore_from_text(judge_text or "")
         # Heuristic nudge based on material hints
         material_hint = infer_material_hint(product_name, product_link)
         print(f"=== Material hint: {material_hint} ===")
@@ -263,11 +318,15 @@ def search() -> Tuple[str, int]:
             impact_label = "Low"
         elif material_hint == "plastic" and impact_label == "Medium":
             impact_label = "High"
+        if ecoscore_val <= 0.0:
+            ecoscore_val = ecoscore_from_impact(impact_label)
+        ecoscore_val = apply_material_heuristics_to_ecoscore(ecoscore_val, material_hint)
 
         if impact_label == "Low":
             result: Dict[str, Any] = {
                 "product": {"name": product_name, "link": product_link},
                 "impact": impact_label,
+                "ecoscore": ecoscore_val,
                 "results": []
             }
             return jsonify(result), 200
@@ -345,6 +404,9 @@ def search() -> Tuple[str, int]:
         result["product"] = {"name": product_name, "link": product_link}
     if impact_label:
         result["impact"] = impact_label
+    # Include ecoscore if we computed it in the judge step
+    if 'ecoscore_val' in locals():
+        result["ecoscore"] = ecoscore_val
     return jsonify(result), 200
 
 
@@ -415,9 +477,16 @@ def judge() -> Tuple[str, int]:
 
     impact = parse_impact_label(output_text or "")
 
+    ecoscore_val = parse_ecoscore_from_text(output_text or "")
+    material_hint = infer_material_hint(product_name, product_link)
+    if ecoscore_val <= 0.0:
+        ecoscore_val = ecoscore_from_impact(impact)
+    ecoscore_val = apply_material_heuristics_to_ecoscore(ecoscore_val, material_hint)
+
     return jsonify({
         "product": {"name": product_name, "link": product_link},
-        "impact": impact
+        "impact": impact,
+        "ecoscore": ecoscore_val
     }), 200
 
 
