@@ -1,0 +1,13 @@
+{
+  "manifest_version": 2,
+  "name": "Simple Firefox Extension",
+  "version": "1.0",
+  "description": "A simple Firefox extension with a blank popup",
+  
+  "browser_action": {
+    "default_popup": "popup.html",
+    "default_title": "Simple Extension"
+  },
+  
+  "permissions": []
+}
