@@ -5,6 +5,10 @@ document.addEventListener('DOMContentLoaded', function() {
   const productPanel = document.querySelector('.product-panel');
   const leftArrow = document.querySelector('.left-arrow');
   const rightArrow = document.querySelector('.right-arrow');
+  const contentPanels = document.querySelectorAll('.product-content');
+  
+  let currentIndex = 0;
+  const totalPanels = contentPanels.length;
   
   // Smooth animation function
   function smoothReturn() {
@@ -15,6 +19,67 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(() => {
       productPanel.style.transition = 'none';
     }, 1100);
+  }
+  
+  // Update content positions
+  function updateContentPositions() {
+    contentPanels.forEach((panel, index) => {
+      panel.classList.remove('current', 'next', 'prev');
+      
+      if (index === currentIndex) {
+        panel.classList.add('current');
+      } else if (index === (currentIndex + 1) % totalPanels) {
+        panel.classList.add('next');
+      } else {
+        panel.classList.add('prev');
+      }
+    });
+  }
+  
+  // Slide to next content (green arrow - always left to right)
+  function slideToNext() {
+    const currentPanel = document.querySelector('.product-content.current');
+    const nextIndex = (currentIndex + 1) % totalPanels;
+    const nextPanel = contentPanels[nextIndex];
+    
+    // Position next panel to the left (off-screen)
+    nextPanel.style.transform = 'translateX(-100%)';
+    nextPanel.style.zIndex = '3';
+    
+    // Force a reflow
+    nextPanel.offsetHeight;
+    
+    // Slide current out to right, next in from left
+    currentPanel.style.transform = 'translateX(100%)';
+    nextPanel.style.transform = 'translateX(0)';
+    
+    setTimeout(() => {
+      currentIndex = nextIndex;
+      updateContentPositions();
+    }, 600);
+  }
+  
+  // Slide to previous content (red arrow - always right to left)
+  function slideToPrev() {
+    const currentPanel = document.querySelector('.product-content.current');
+    const prevIndex = (currentIndex - 1 + totalPanels) % totalPanels;
+    const prevPanel = contentPanels[prevIndex];
+    
+    // Position prev panel to the right (off-screen)
+    prevPanel.style.transform = 'translateX(100%)';
+    prevPanel.style.zIndex = '3';
+    
+    // Force a reflow
+    prevPanel.offsetHeight;
+    
+    // Slide current out to left, prev in from right
+    currentPanel.style.transform = 'translateX(-100%)';
+    prevPanel.style.transform = 'translateX(0)';
+    
+    setTimeout(() => {
+      currentIndex = prevIndex;
+      updateContentPositions();
+    }, 600);
   }
   
   if (productPanel) {
@@ -51,6 +116,11 @@ document.addEventListener('DOMContentLoaded', function() {
     leftArrow.addEventListener('mouseleave', function() {
       smoothReturn();
     });
+    
+    // Left arrow click effect
+    leftArrow.addEventListener('click', function() {
+      slideToPrev();
+    });
   }
   
   // Right arrow hover effect (green arrow - swipe right)
@@ -63,5 +133,13 @@ document.addEventListener('DOMContentLoaded', function() {
     rightArrow.addEventListener('mouseleave', function() {
       smoothReturn();
     });
+    
+    // Right arrow click effect
+    rightArrow.addEventListener('click', function() {
+      slideToNext();
+    });
   }
+  
+  // Initialize content positions
+  updateContentPositions();
 });
