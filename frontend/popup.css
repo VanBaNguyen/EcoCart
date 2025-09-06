@@ -1,0 +1,59 @@
+body {
+  width: 375px;
+  height: 667px;
+  margin: 0;
+  padding: 0;
+  font-family: Arial, sans-serif;
+  overflow: hidden;
+  background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%);
+}
+
+.popup-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding: 20px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 20px;
+  justify-content: center;
+  position: relative;
+}
+
+.earth-logo {
+  font-size: 32px;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+  position: absolute;
+  left: 0;
+}
+
+.title-section {
+  flex: 1;
+  text-align: center;
+  margin-top: 15px;
+}
+
+.title {
+  color: white;
+  font-size: 28px;
+  font-weight: bold;
+  margin: 0 0 8px 0;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  letter-spacing: 1px;
+}
+
+.tagline {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  margin: 0;
+  font-weight: 300;
+  line-height: 1.4;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
