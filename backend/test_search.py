@@ -15,14 +15,16 @@ def main() -> int:
     parser.add_argument("--product-link", default="", help="Original product link for alternatives search")
     parser.add_argument("--timeout", type=float, default=60.0, help="HTTP timeout in seconds")
     parser.add_argument("--model", default="", help="Optional model override, e.g. gpt-4o-mini")
+    parser.add_argument("--judge-only", action="store_true", help="Call /judge endpoint instead of /search")
     args = parser.parse_args()
 
-    url = f"{args.host}/search"
+    url = f"{args.host}/judge" if args.judge_only else f"{args.host}/search"
     payload: Dict[str, Any] = {"limit": args.limit}
     if args.query:
         payload["query"] = args.query
     if args.product_name or args.product_link:
         payload["product"] = {"name": args.product_name, "link": args.product_link}
+    # judge-first is now default when product is provided; no flag needed
     if args.model:
         payload["model"] = args.model
 
