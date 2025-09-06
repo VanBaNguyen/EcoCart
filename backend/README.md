@@ -51,6 +51,33 @@ curl -sS -X POST http://localhost:5057/search \
   }' | jq
 ```
 
+Judge environmental impact for a specific product (Low|Medium|High)
+
+```
+curl -sS -X POST http://localhost:5057/judge \
+  -H "Content-Type: application/json" \
+  -d '{
+    "product": {
+      "name": "Fidqiog 150 Pcs Plastic Straws, Flexible Bendy Straws",
+      "link": "https://www.amazon.ca/Fidqiog-Flexible-Slushies-Smoothies-Disposable/dp/B0F4K9XWBS?th=1"
+    }
+  }' | jq
+```
+
+Search always judges first when a product is provided (skips alternatives when impact is Low)
+
+```
+curl -sS -X POST http://localhost:5057/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "product": {
+      "name": "Fidqiog 150 Pcs Plastic Straws, Flexible Bendy Straws",
+      "link": "https://www.amazon.ca/Fidqiog-Flexible-Slushies-Smoothies-Disposable/dp/B0F4K9XWBS?th=1"
+    },
+    "limit": 5
+  }' | jq
+```
+
 Response shape
 
 ```
