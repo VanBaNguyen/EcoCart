@@ -1,6 +1,67 @@
 // Simple Firefox extension popup script
 document.addEventListener('DOMContentLoaded', function() {
-  // This is a blank popup as requested
-  // You can add functionality here later if needed
   console.log('Simple Firefox extension popup loaded');
+  
+  const productPanel = document.querySelector('.product-panel');
+  const leftArrow = document.querySelector('.left-arrow');
+  const rightArrow = document.querySelector('.right-arrow');
+  
+  // Smooth animation function
+  function smoothReturn() {
+    productPanel.style.transition = 'transform 1.1s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+    productPanel.style.transform = 'translateX(0px) rotate(0deg)';
+    
+    // Remove transition after animation completes
+    setTimeout(() => {
+      productPanel.style.transition = 'none';
+    }, 1100);
+  }
+  
+  if (productPanel) {
+    // Panel hover effect
+    productPanel.addEventListener('mousemove', function(e) {
+      const rect = productPanel.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const panelWidth = rect.width;
+      const centerX = panelWidth / 2;
+      
+      // Calculate how far from center (0 to 1)
+      const distanceFromCenter = (x - centerX) / centerX;
+      
+      // Move the entire panel horizontally and rotate it
+      const moveX = distanceFromCenter * 20; // Move up to 20px
+      const rotate = distanceFromCenter * 8; // Rotate up to 8 degrees
+      
+      productPanel.style.transition = 'none';
+      productPanel.style.transform = `translateX(${moveX}px) rotate(${rotate}deg)`;
+    });
+    
+    productPanel.addEventListener('mouseleave', function() {
+      smoothReturn();
+    });
+  }
+  
+  // Left arrow hover effect (red arrow - swipe left)
+  if (leftArrow && productPanel) {
+    leftArrow.addEventListener('mouseenter', function() {
+      productPanel.style.transition = 'none';
+      productPanel.style.transform = 'translateX(-15px) rotate(-5deg)';
+    });
+    
+    leftArrow.addEventListener('mouseleave', function() {
+      smoothReturn();
+    });
+  }
+  
+  // Right arrow hover effect (green arrow - swipe right)
+  if (rightArrow && productPanel) {
+    rightArrow.addEventListener('mouseenter', function() {
+      productPanel.style.transition = 'none';
+      productPanel.style.transform = 'translateX(15px) rotate(5deg)';
+    });
+    
+    rightArrow.addEventListener('mouseleave', function() {
+      smoothReturn();
+    });
+  }
 });
