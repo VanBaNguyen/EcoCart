@@ -598,11 +598,6 @@ def search() -> Tuple[str, int]:
             preview = fetch_og_image(item["url"])
             if preview:
                 item["image"] = preview
-            # Improve price accuracy for Amazon links
-            if is_amazon_url(item.get("url", "")):
-                accurate = extract_amazon_price(item["url"]) or ""
-                if accurate:
-                    item["price"] = accurate
                 # Also try to inline as data URL to avoid client-side loading issues
                 try:
                     headers = {
@@ -616,6 +611,11 @@ def search() -> Tuple[str, int]:
                         item["image_data_url"] = f"data:{ctype};base64,{b64}"
                 except Exception as _e:
                     logger.debug("Failed building data URL for %s: %s", preview, _e)
+            # Improve price accuracy for Amazon links
+            if is_amazon_url(item.get("url", "")):
+                accurate = extract_amazon_price(item["url"]) or ""
+                if accurate:
+                    item["price"] = accurate
 
     logger.debug("Extracted items: %s", json.dumps(items, indent=2))
 
