@@ -5,7 +5,10 @@ body {
   padding: 0;
   font-family: Arial, sans-serif;
   overflow: hidden;
-  background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%);
+  background-image: url('background4.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .popup-container {
@@ -51,6 +54,8 @@ body {
   letter-spacing: 1px;
 }
 
+.title-green { color: #2ecc71; }
+
 .tagline {
   color: rgba(255, 255, 255, 0.9);
   font-size: 18px;
@@ -59,6 +64,9 @@ body {
   line-height: 1.4;
   text-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
+
+.tagline-red { color: #ff6b6b; }
+.tagline-green { color: #2ecc71; }
 
 .ecoscore-banner {
   display: flex;
@@ -148,11 +156,11 @@ body {
 }
 
 .left-arrow {
-  background-color: #ff4757;
+  background-color: #ff6b6b;
 }
 
 .right-arrow {
-  background-color: #2ed573;
+  background-color: #2ecc71;
 }
 
 .add-to-cart-section {
@@ -247,7 +255,7 @@ body {
   padding: 8px 12px;
   border: none;
   border-radius: 8px;
-  background-color: #2ed573;
+  background-color: #2ecc71;
   color: #ffffff;
   font-size: 14px;
   cursor: pointer;
