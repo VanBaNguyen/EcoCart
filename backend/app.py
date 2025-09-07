@@ -213,6 +213,40 @@ def fetch_og_image(target_url: str) -> str:
         return ""
 
 
+def extract_amazon_price(target_url: str) -> str:
+    try:
+        if not is_amazon_url(target_url):
+            return ""
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+            "Accept-Language": "en-US,en;q=0.9",
+        }
+        resp = requests.get(target_url, headers=headers, timeout=6)
+        if not resp.ok:
+            return ""
+        soup = BeautifulSoup(resp.text or "", "html.parser")
+        # Try known price selectors
+        sel_candidates = [
+            "#corePrice_feature_div span.a-offscreen",
+            "#apex_desktop span.a-offscreen",
+            "#priceblock_ourprice",
+            "#priceblock_dealprice",
+            "#priceblock_saleprice",
+        ]
+        for sel in sel_candidates:
+            el = soup.select_one(sel)
+            if el and el.get_text(strip=True):
+                return el.get_text(strip=True)
+        # Fallback regex like $12.99
+        m = re.search(r"[$€£]\s?\d+[\.,]?\d*(?:\.\d{2})?", resp.text or "")
+        if m:
+            return m.group(0)
+        return ""
+    except Exception as e:
+        logger.debug("Price extract failed for %s: %s", target_url, e)
+        return ""
+
+
 @app.route("/image-proxy", methods=["GET"])
 def image_proxy() -> Tuple[bytes, int]:
     target_url = request.args.get("url", type=str, default="").strip()
@@ -564,6 +598,11 @@ def search() -> Tuple[str, int]:
             preview = fetch_og_image(item["url"])
             if preview:
                 item["image"] = preview
+            # Improve price accuracy for Amazon links
+            if is_amazon_url(item.get("url", "")):
+                accurate = extract_amazon_price(item["url"]) or ""
+                if accurate:
+                    item["price"] = accurate
                 # Also try to inline as data URL to avoid client-side loading issues
                 try:
                     headers = {
