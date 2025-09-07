@@ -69,11 +69,16 @@ def extract_items_from_text(text: str) -> List[Dict[str, str]]:
             for item in data["results"]:
                 name = str(item.get("name", "")).strip()
                 url = str(item.get("url", "")).strip()
+                price_val = item.get("price")
+                price = str(price_val).strip() if price_val is not None else ""
                 if not url:
                     continue
                 if not name:
                     name = normalize_name_from_url(url)
-                items.append({"name": name, "url": url})
+                entry = {"name": name, "url": url}
+                if price:
+                    entry["price"] = price
+                items.append(entry)
             if items:
                 return items
         if isinstance(data, list):
@@ -82,11 +87,16 @@ def extract_items_from_text(text: str) -> List[Dict[str, str]]:
                 if isinstance(item, dict):
                     name = str(item.get("name", "")).strip()
                     url = str(item.get("url", "")).strip()
+                    price_val = item.get("price")
+                    price = str(price_val).strip() if price_val is not None else ""
                     if not url:
                         continue
                     if not name:
                         name = normalize_name_from_url(url)
-                    items.append({"name": name, "url": url})
+                    entry = {"name": name, "url": url}
+                    if price:
+                        entry["price"] = price
+                    items.append(entry)
             if items:
                 return items
     except Exception as e:
@@ -140,8 +150,9 @@ def build_prompt(user_query: str, max_results: int) -> str:
         "Use web_search to find environmentally friendlier product options for the user's topic.\n"
         "Focus on credible official product or brand pages, sustainability certifications, and lifecycle considerations.\n"
         f"Return up to {max_results} distinct results.\n"
+        "Include an approximate price with currency where available.\n"
         "Produce ONLY JSON with this shape exactly:\n"
-        '{ "results": [ { "name": "Product or Brand Name", "url": "https://..." } ] }\n'
+        '{ "results": [ { "name": "Product or Brand Name", "url": "https://...", "price": "$12.99" } ] }\n'
         "Do not include explanations or markdown, only valid JSON."
     )
     topic_line = f"User topic: {user_query.strip() or 'environmentally friendlier everyday products'}"
@@ -156,8 +167,9 @@ def build_alternatives_prompt(product_name: str, product_link: str, max_results:
         "Prioritize durable, reusable, recyclable, compostable, or certified-sustainable materials (e.g., paper, metal, bamboo, glass, silicone when appropriate).\n"
         "Favor credible official product or brand pages over aggregator sites when possible.\n"
         f"Return up to {max_results} distinct alternatives.\n"
+        "Include an approximate price with currency where available.\n"
         "Produce ONLY JSON with this shape exactly:\n"
-        '{ "results": [ { "name": "Product or Brand Name", "url": "https://..." } ] }\n'
+        '{ "results": [ { "name": "Product or Brand Name", "url": "https://...", "price": "$12.99" } ] }\n'
         "Do not include explanations or markdown, only valid JSON."
     )
     return f"{name_line}\n{link_line}\n\n{base_instruction}"

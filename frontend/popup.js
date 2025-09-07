@@ -12,7 +12,34 @@ document.addEventListener('DOMContentLoaded', function() {
   let BASE_URL = CANDIDATE_BASE_URLS[0];
 
   function setEcoScaleText(text) {
-    if (ecoscaleTitle) ecoscaleTitle.textContent = `EcoScore: ${text}`;
+    if (ecoscaleTitle) ecoscaleTitle.textContent = `${text}`;
+    // Color code the ecoscore and show warning if < 3
+    try {
+      const t = parseFloat(String(text).replace(/[^0-9.]/g, ''));
+      ecoscaleTitle.classList.remove('ecoscore-low', 'ecoscore-mid', 'ecoscore-high');
+      const warn = document.querySelector('.ecoscore-warning');
+      if (!isNaN(t)) {
+        if (t <= 2.5) {
+          ecoscaleTitle.classList.add('ecoscore-low');
+        } else if (t <= 3.5) {
+          ecoscaleTitle.classList.add('ecoscore-mid');
+        } else {
+          ecoscaleTitle.classList.add('ecoscore-high');
+        }
+        if (warn) {
+          if (t < 3) {
+            warn.textContent = 'This product is not environmentally friendly.';
+            warn.style.display = 'block';
+          } else {
+            warn.textContent = '';
+            warn.style.display = 'none';
+          }
+        }
+      } else if (warn) {
+        warn.textContent = '';
+        warn.style.display = 'none';
+      }
+    } catch (_) {}
   }
 
   async function ensureBackend() {
@@ -405,7 +432,7 @@ document.addEventListener('DOMContentLoaded', function() {
       if (src) img.src = src;
       const name = document.createElement('div');
       name.className = 'cart-item-name';
-      name.textContent = it.name || (it.url || 'Item');
+      name.textContent = (it.name || (it.url || 'Item')) + (it.price ? ` — ${it.price}` : '');
       row.appendChild(img);
       row.appendChild(name);
       if (it.url) {
@@ -451,7 +478,7 @@ document.addEventListener('DOMContentLoaded', function() {
       } catch (_) {}
 
       setEcoScaleText('Finding alternatives...');
-      const altPayload = { product: { name, link }, limit: 5, model: 'gpt-4o-mini' };
+      const altPayload = { product: { name, link }, limit: 3, model: 'gpt-4o-mini' };
       const altRes = await fetch(`${BASE_URL}/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -468,7 +495,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const altScoreEl = document.querySelector('.alt-ecoscore');
       if (altSummary && altNameEl && altScoreEl) {
         altSummary.style.display = 'block';
-        const alts = Array.isArray(altData.results) ? altData.results.slice(0, totalPanels) : [];
+        const alts = Array.isArray(altData.results) ? altData.results.slice(0, Math.min(totalPanels, 3)) : [];
         if (alts.length > 0) {
           activePageUrl = link || '';
           activeOriginalName = name || '';
@@ -570,11 +597,21 @@ document.addEventListener('DOMContentLoaded', function() {
     const altSummary = document.querySelector('.alt-summary');
     const altNameEl = document.querySelector('.alt-name');
     const altScoreEl = document.querySelector('.alt-ecoscore');
+    let altPriceEl = document.querySelector('.alt-price');
+    if (!altPriceEl) {
+      altPriceEl = document.createElement('div');
+      altPriceEl.className = 'alt-price';
+      altPriceEl.style.color = '#ffffff';
+      altPriceEl.style.fontSize = '16px';
+      altPriceEl.style.opacity = '0.95';
+      altSummary && altSummary.appendChild(altPriceEl);
+    }
     if (altSummary) altSummary.style.display = 'block';
     const activeCount = getActivePanelCount();
     if (!currentAlternatives || activeCount === 0) return;
     const current = currentAlternatives[currentIndex];
     if (altNameEl) altNameEl.textContent = current && current.name ? current.name : 'Alternative';
+    if (altPriceEl) altPriceEl.textContent = current && current.price ? `Price: ${current.price}` : '';
     // Update right arrow: add to EcoCart
     if (rightArrow) {
       rightArrow.style.cursor = 'pointer';
@@ -732,7 +769,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
   
-  // Left arrow hover effect (red arrow - swipe left)
+  // Left arrow hover effect (red arrow - skip)
   if (leftArrow && productPanel) {
     leftArrow.addEventListener('mouseenter', function() {
       productPanel.style.transition = 'none';
@@ -743,9 +780,9 @@ document.addEventListener('DOMContentLoaded', function() {
       smoothReturn();
     });
     
-    // Left arrow click effect
+    // Left arrow click effect (skip current → go to next)
     leftArrow.addEventListener('click', function() {
-      slideToPrev();
+      slideToNext();
     });
   }
   
@@ -778,6 +815,15 @@ document.addEventListener('DOMContentLoaded', function() {
   if (cartBackBtn) {
     cartBackBtn.addEventListener('click', function() {
       hideCartView();
+    });
+  }
+
+  // Clear cart button
+  const cartClearBtn = document.querySelector('.cart-clear-btn');
+  if (cartClearBtn) {
+    cartClearBtn.addEventListener('click', async function() {
+      await saveCart([]);
+      await renderCartView();
     });
   }
   
