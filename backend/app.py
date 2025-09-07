@@ -6,7 +6,7 @@ import time
 from typing import Any, Dict, List, Tuple
 from urllib.parse import urlparse, urljoin
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 from dotenv import load_dotenv
 from openai import OpenAI, OpenAIError
@@ -32,7 +32,7 @@ def add_cors_headers(response):
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     return response
 
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
 client = OpenAI(timeout=30.0)
@@ -45,6 +45,14 @@ def compute_top_level_domain(url: str) -> str:
     except Exception as e:
         logger.exception("Failed computing TLD for url=%s: %s", url, e)
         return ""
+
+
+def is_amazon_url(url: str) -> bool:
+    try:
+        extracted = tldextract.extract(url)
+        return (extracted.domain or "").lower() == "amazon"
+    except Exception:
+        return False
 
 
 def normalize_name_from_url(url: str) -> str:
@@ -118,7 +126,9 @@ def extract_items_from_text(text: str) -> List[Dict[str, str]]:
 def fetch_og_image(target_url: str) -> str:
     try:
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9"
         }
         resp = requests.get(target_url, headers=headers, timeout=6)
         if not resp.ok:
@@ -135,6 +145,64 @@ def fetch_og_image(target_url: str) -> str:
         tw = soup.find("meta", attrs={"name": "twitter:image"})
         if tw and tw.get("content"):
             return urljoin(target_url, tw.get("content"))
+        # Amazon-specific extraction (first product image)
+        if is_amazon_url(target_url):
+            # Common product image element
+            landing = soup.select_one("img#landingImage")
+            if landing:
+                # Prefer high-res hint
+                hires = landing.get("data-old-hires")
+                if hires:
+                    return urljoin(target_url, hires)
+                dyn = landing.get("data-a-dynamic-image")
+                if dyn:
+                    try:
+                        data = json.loads(dyn)
+                        if isinstance(data, dict) and data:
+                            # Pick the first URL key
+                            first_key = next(iter(data.keys()))
+                            if first_key:
+                                return urljoin(target_url, first_key)
+                    except Exception:
+                        # Attempt to normalize quotes and extract first URL
+                        try:
+                            norm = dyn.replace("&quot;", '"')
+                            data = json.loads(norm)
+                            if isinstance(data, dict) and data:
+                                first_key = next(iter(data.keys()))
+                                if first_key:
+                                    return urljoin(target_url, first_key)
+                        except Exception:
+                            m = re.search(r"https?://[^\"]+", dyn)
+                            if m:
+                                return urljoin(target_url, m.group(0))
+                srcset = landing.get("srcset")
+                if srcset:
+                    # Choose the last (highest density) URL
+                    parts = [p.strip() for p in srcset.split(',') if p.strip()]
+                    if parts:
+                        last = parts[-1].split(' ')[0]
+                        if last:
+                            return urljoin(target_url, last)
+                src = landing.get("src")
+                if src:
+                    return urljoin(target_url, src)
+            # Alternate wrappers
+            wrap_img = soup.select_one("#imgTagWrapperId img")
+            if wrap_img:
+                # Try srcset first
+                w_srcset = wrap_img.get("srcset")
+                if w_srcset:
+                    parts = [p.strip() for p in w_srcset.split(',') if p.strip()]
+                    if parts:
+                        last = parts[-1].split(' ')[0]
+                        if last:
+                            return urljoin(target_url, last)
+                if wrap_img.get("src"):
+                    return urljoin(target_url, wrap_img.get("src"))
+            book_img = soup.select_one("img#imgBlkFront")
+            if book_img and book_img.get("src"):
+                return urljoin(target_url, book_img.get("src"))
         # Fallback to first image on page
         img = soup.find("img")
         if img and img.get("src"):
@@ -143,6 +211,56 @@ def fetch_og_image(target_url: str) -> str:
     except Exception as e:
         logger.debug("OG image fetch failed for %s: %s", target_url, e)
         return ""
+
+
+@app.route("/image-proxy", methods=["GET"])
+def image_proxy() -> Tuple[bytes, int]:
+    target_url = request.args.get("url", type=str, default="").strip()
+    if not target_url:
+        return jsonify({"error": "bad_request", "message": "url is required"}), 400
+    if not target_url.lower().startswith(("http://", "https://")):
+        return jsonify({"error": "bad_request", "message": "unsupported scheme"}), 400
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+        }
+        r = requests.get(target_url, headers=headers, timeout=8)
+        if not r.ok:
+            return jsonify({"error": "upstream_error", "status": r.status_code}), 502
+        content_type = r.headers.get("Content-Type", "image/jpeg")
+        resp = Response(r.content, content_type=content_type)
+        resp.headers["Cache-Control"] = "public, max-age=86400"
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        resp.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+        return resp, 200
+    except Exception as e:
+        logger.debug("image-proxy failed for %s: %s", target_url, e)
+        return jsonify({"error": "proxy_error", "message": str(e)}), 502
+
+
+@app.route("/extract-image", methods=["GET"])
+def extract_image() -> Tuple[str, int]:
+    target_url = request.args.get("url", type=str, default="").strip()
+    if not target_url:
+        return jsonify({"error": "bad_request", "message": "url is required"}), 400
+    img_url = fetch_og_image(target_url)
+    result: Dict[str, Any] = {"image": img_url}
+    if img_url:
+        try:
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+                "Referer": target_url,
+            }
+            r = requests.get(img_url, headers=headers, timeout=8)
+            if r.ok and r.content:
+                ctype = r.headers.get("Content-Type", "image/jpeg")
+                import base64
+                b64 = base64.b64encode(r.content).decode("ascii")
+                result["image_data_url"] = f"data:{ctype};base64,{b64}"
+        except Exception as e:
+            logger.debug("extract-image data url build failed for %s: %s", img_url, e)
+    return jsonify(result), 200
 
 
 def build_prompt(user_query: str, max_results: int) -> str:
@@ -165,7 +283,8 @@ def build_alternatives_prompt(product_name: str, product_link: str, max_results:
     base_instruction = (
         "Using web_search, find environmentally friendlier alternatives to the given product.\n"
         "Prioritize durable, reusable, recyclable, compostable, or certified-sustainable materials (e.g., paper, metal, bamboo, glass, silicone when appropriate).\n"
-        "Favor credible official product or brand pages over aggregator sites when possible.\n"
+        "Only search and return results from Amazon retail domains: amazon.com, amazon.ca, amazon.co.uk, amazon.de, amazon.fr, amazon.it, amazon.es, amazon.co.jp, amazon.in, amazon.com.au.\n"
+        "Use site:amazon.* operators in your web_search queries to constrain results.\n"
         f"Return up to {max_results} distinct alternatives.\n"
         "Include an approximate price with currency where available.\n"
         "Produce ONLY JSON with this shape exactly:\n"
@@ -325,11 +444,11 @@ def search() -> Tuple[str, int]:
             message_text = str(oe)
             logger.warning("OpenAI judge error with model %s: %s", request_model, message_text)
             is_rate_limited = ("429" in message_text) or ("rate limit" in message_text.lower())
-            if is_rate_limited and request_model != "gpt-4o-mini":
-                logger.info("Judge retry with fallback model gpt-4o-mini after backoff...")
+            if is_rate_limited and request_model != "gpt-5":
+                logger.info("Judge retry with fallback model gpt-5 after backoff...")
                 time.sleep(1.5)
                 try:
-                    judge_resp = call_openai("gpt-4o-mini")
+                    judge_resp = call_openai("gpt-5")
                 except Exception as e2:
                     logger.exception("Judge fallback failed: %s", e2)
                     return jsonify({"error": "openai_api_error", "message": str(e2)}), 502
@@ -405,11 +524,11 @@ def search() -> Tuple[str, int]:
         logger.warning("OpenAI error with model %s: %s", request_model, message_text)
         # Fallback on rate limit to low-cost model if not already using it
         is_rate_limited = ("429" in message_text) or ("rate limit" in message_text.lower())
-        if is_rate_limited and request_model != "gpt-4o-mini":
-            logger.info("Retrying with fallback model gpt-4o-mini after brief backoff...")
+        if is_rate_limited and request_model != "gpt-5":
+            logger.info("Retrying with fallback model gpt-5 after brief backoff...")
             time.sleep(1.5)
             try:
-                response = call_openai("gpt-4o-mini")
+                response = call_openai("gpt-5")
             except Exception as e2:
                 logger.exception("Fallback model also failed: %s", e2)
                 return jsonify({"error": "openai_api_error", "message": str(e2)}), 502
@@ -439,6 +558,12 @@ def search() -> Tuple[str, int]:
 
     items = extract_items_from_text(output_text or "")
 
+    # If searching for alternatives to a specific product, constrain to Amazon domains and limit to requested max_results
+    if product_name or product_link:
+        items = [it for it in items if is_amazon_url(it.get("url", ""))]
+        if max_results > 0:
+            items = items[:max_results]
+
     for item in items:
         item["tld"] = compute_top_level_domain(item.get("url", ""))
         # Enrich with preview image if possible
@@ -446,6 +571,19 @@ def search() -> Tuple[str, int]:
             preview = fetch_og_image(item["url"])
             if preview:
                 item["image"] = preview
+                # Also try to inline as data URL to avoid client-side loading issues
+                try:
+                    headers = {
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+                    }
+                    r = requests.get(preview, headers=headers, timeout=8)
+                    if r.ok and r.content:
+                        ctype = r.headers.get("Content-Type", "image/jpeg")
+                        import base64
+                        b64 = base64.b64encode(r.content).decode("ascii")
+                        item["image_data_url"] = f"data:{ctype};base64,{b64}"
+                except Exception as _e:
+                    logger.debug("Failed building data URL for %s: %s", preview, _e)
 
     logger.debug("Extracted items: %s", json.dumps(items, indent=2))
 
@@ -495,11 +633,11 @@ def judge() -> Tuple[str, int]:
         message_text = str(oe)
         logger.warning("OpenAI judge error with model %s: %s", request_model, message_text)
         is_rate_limited = ("429" in message_text) or ("rate limit" in message_text.lower())
-        if is_rate_limited and request_model != "gpt-4o-mini":
-            logger.info("Judge retry with fallback model gpt-4o-mini after backoff...")
+        if is_rate_limited and request_model != "gpt-5":
+            logger.info("Judge retry with fallback model gpt-5 after backoff...")
             time.sleep(1.5)
             try:
-                response = call_openai("gpt-4o-mini")
+                response = call_openai("gpt-5")
             except Exception as e2:
                 logger.exception("Judge fallback failed: %s", e2)
                 return jsonify({"error": "openai_api_error", "message": str(e2)}), 502

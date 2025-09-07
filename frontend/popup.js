@@ -12,7 +12,19 @@ document.addEventListener('DOMContentLoaded', function() {
   let BASE_URL = CANDIDATE_BASE_URLS[0];
 
   function setEcoScaleText(text) {
-    if (ecoscaleTitle) ecoscaleTitle.textContent = `${text}`;
+    const s = String(text);
+    const trimmed = s.trim();
+    const hasLabel = /ecoscore/i.test(trimmed);
+    const isNumeric = /^\d+(?:\.\d+)?$/.test(trimmed);
+    if (ecoscaleTitle) {
+      if (hasLabel) {
+        ecoscaleTitle.textContent = trimmed;
+      } else if (isNumeric) {
+        ecoscaleTitle.textContent = `EcoScore: ${trimmed}`;
+      } else {
+        ecoscaleTitle.textContent = trimmed;
+      }
+    }
     // Color code the ecoscore and show warning if < 3
     try {
       const t = parseFloat(String(text).replace(/[^0-9.]/g, ''));
@@ -288,6 +300,23 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
+  // Fetch the image as a blob and set as object URL to avoid remote loading issues
+  async function tryLoadBlobImage(img, src) {
+    try {
+      const res = await fetch(src, { mode: 'cors' });
+      if (!res.ok) return false;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      return new Promise((resolve) => {
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+        img.src = url;
+      });
+    } catch (_) {
+      return false;
+    }
+  }
+
   function buildFaviconUrlFrom(firstUrl) {
     try {
       const u = new URL(firstUrl);
@@ -310,7 +339,20 @@ document.addEventListener('DOMContentLoaded', function() {
     const candidates = [];
     if (first.image) {
       const forced = first.image.replace(/^http:/, 'https:');
+      // Route through backend proxy to avoid CORS/cookie issues on Amazon
+      candidates.push(`${BASE_URL}/image-proxy?url=${encodeURIComponent(forced)}`);
       candidates.push(forced);
+    }
+    // If we have the exact product page URL, try a direct product image heuristic
+    if ((!first.image && !first.image_data_url) && first.url) {
+      try {
+        const u = new URL(first.url);
+        // Some amazon pages expose images via a query param or predictable path; as a heuristic, add the page itself (proxy will extract)
+        candidates.push(`${BASE_URL}/image-proxy?url=${encodeURIComponent(first.url)}`);
+      } catch (_) {}
+    }
+    if (first.image_data_url) {
+      candidates.unshift(first.image_data_url);
     }
     if (first.url) {
       const fav = buildFaviconUrlFrom(first.url);
@@ -318,11 +360,36 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     for (const src of candidates) {
-      const ok = await tryLoadImage(img, src);
+      let ok = await tryLoadImage(img, src);
+      if (!ok) ok = await tryLoadBlobImage(img, src);
       if (ok) {
         panelItem.appendChild(img);
         return true;
       }
+    }
+
+    // Last resort: ask backend to extract and inline image for the specific product URL
+    if (first.url) {
+      try {
+        const resp = await fetch(`${BASE_URL}/extract-image?url=${encodeURIComponent(first.url)}`);
+        if (resp.ok) {
+          const j = await resp.json();
+          const inline = j && (j.image_data_url || j.image);
+          if (inline) {
+            const ok = await tryLoadImage(img, inline);
+            if (!ok) {
+              const ok2 = await tryLoadBlobImage(img, inline);
+              if (ok2) {
+                panelItem.appendChild(img);
+                return true;
+              }
+            } else {
+              panelItem.appendChild(img);
+              return true;
+            }
+          }
+        }
+      } catch (_) {}
     }
 
     // Fallback: text placeholder
