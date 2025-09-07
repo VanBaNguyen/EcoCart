@@ -12,7 +12,46 @@ document.addEventListener('DOMContentLoaded', function() {
   let BASE_URL = CANDIDATE_BASE_URLS[0];
 
   function setEcoScaleText(text) {
-    if (ecoscaleTitle) ecoscaleTitle.textContent = `EcoScore: ${text}`;
+    const s = String(text);
+    const trimmed = s.trim();
+    const hasLabel = /ecoscore/i.test(trimmed);
+    const isNumeric = /^\d+(?:\.\d+)?$/.test(trimmed);
+    if (ecoscaleTitle) {
+      if (hasLabel) {
+        ecoscaleTitle.textContent = trimmed;
+      } else if (isNumeric) {
+        ecoscaleTitle.textContent = `EcoScore: ${trimmed}`;
+      } else {
+        ecoscaleTitle.textContent = trimmed;
+      }
+    }
+    // Color code the ecoscore and show warning if < 3
+    try {
+      const t = parseFloat(String(text).replace(/[^0-9.]/g, ''));
+      ecoscaleTitle.classList.remove('ecoscore-low', 'ecoscore-mid', 'ecoscore-high');
+      const warn = document.querySelector('.ecoscore-warning');
+      if (!isNaN(t)) {
+        if (t <= 2.5) {
+          ecoscaleTitle.classList.add('ecoscore-low');
+        } else if (t <= 3.5) {
+          ecoscaleTitle.classList.add('ecoscore-mid');
+        } else {
+          ecoscaleTitle.classList.add('ecoscore-high');
+        }
+        if (warn) {
+          if (t < 3) {
+            warn.textContent = 'This product is not environmentally friendly.';
+            warn.style.display = 'block';
+          } else {
+            warn.textContent = '';
+            warn.style.display = 'none';
+          }
+        }
+      } else if (warn) {
+        warn.textContent = '';
+        warn.style.display = 'none';
+      }
+    } catch (_) {}
   }
 
   async function ensureBackend() {
@@ -224,12 +263,15 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     console.log('[EcoCart] Proceeding with Amazon product:', { name: title || 'Current Page', link: url });
-    judgeOnly(title || 'Current Page', url);
+    const productName = title || 'Current Page';
+    try { prefetchAlternatives(productName, url); } catch (_) {}
+    judgeOnly(productName, url);
   })();
   
   const productPanel = document.querySelector('.product-panel');
   const leftArrow = document.querySelector('.left-arrow');
   const rightArrow = document.querySelector('.right-arrow');
+  const viewCartBtn = document.getElementById('view-cart-btn');
   const contentPanels = document.querySelectorAll('.product-content');
   
   let currentIndex = 0;
@@ -239,6 +281,8 @@ document.addEventListener('DOMContentLoaded', function() {
   let activeOriginalLink = '';
   let currentAlternatives = null;
   let altScores = [];
+  let alternativesFetchPromise = null;
+  let prefetchedAltData = null;
   
   // Smooth animation function
   function smoothReturn() {
@@ -258,6 +302,23 @@ document.addEventListener('DOMContentLoaded', function() {
       img.onerror = () => resolve(false);
       img.src = src;
     });
+  }
+
+  // Fetch the image as a blob and set as object URL to avoid remote loading issues
+  async function tryLoadBlobImage(img, src) {
+    try {
+      const res = await fetch(src, { mode: 'cors' });
+      if (!res.ok) return false;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      return new Promise((resolve) => {
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+        img.src = url;
+      });
+    } catch (_) {
+      return false;
+    }
   }
 
   function buildFaviconUrlFrom(firstUrl) {
@@ -282,7 +343,20 @@ document.addEventListener('DOMContentLoaded', function() {
     const candidates = [];
     if (first.image) {
       const forced = first.image.replace(/^http:/, 'https:');
+      // Route through backend proxy to avoid CORS/cookie issues on Amazon
+      candidates.push(`${BASE_URL}/image-proxy?url=${encodeURIComponent(forced)}`);
       candidates.push(forced);
+    }
+    // If we have the exact product page URL, try a direct product image heuristic
+    if ((!first.image && !first.image_data_url) && first.url) {
+      try {
+        const u = new URL(first.url);
+        // Some amazon pages expose images via a query param or predictable path; as a heuristic, add the page itself (proxy will extract)
+        candidates.push(`${BASE_URL}/image-proxy?url=${encodeURIComponent(first.url)}`);
+      } catch (_) {}
+    }
+    if (first.image_data_url) {
+      candidates.unshift(first.image_data_url);
     }
     if (first.url) {
       const fav = buildFaviconUrlFrom(first.url);
@@ -290,11 +364,36 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     for (const src of candidates) {
-      const ok = await tryLoadImage(img, src);
+      let ok = await tryLoadImage(img, src);
+      if (!ok) ok = await tryLoadBlobImage(img, src);
       if (ok) {
         panelItem.appendChild(img);
         return true;
       }
+    }
+
+    // Last resort: ask backend to extract and inline image for the specific product URL
+    if (first.url) {
+      try {
+        const resp = await fetch(`${BASE_URL}/extract-image?url=${encodeURIComponent(first.url)}`);
+        if (resp.ok) {
+          const j = await resp.json();
+          const inline = j && (j.image_data_url || j.image);
+          if (inline) {
+            const ok = await tryLoadImage(img, inline);
+            if (!ok) {
+              const ok2 = await tryLoadBlobImage(img, inline);
+              if (ok2) {
+                panelItem.appendChild(img);
+                return true;
+              }
+            } else {
+              panelItem.appendChild(img);
+              return true;
+            }
+          }
+        }
+      } catch (_) {}
     }
 
     // Fallback: text placeholder
@@ -309,6 +408,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // -------- Persistent state across popup sessions --------
   const STORAGE_KEY = 'ecocart_page_states';
+  const CART_KEY = 'ecocart_cart_items';
   function storageGet(key) {
     return new Promise((resolve) => {
       try {
@@ -355,6 +455,83 @@ document.addEventListener('DOMContentLoaded', function() {
     return saveAllStates(map);
   }
 
+  async function loadCart() {
+    const data = await storageGet(CART_KEY);
+    return (data && data[CART_KEY]) || [];
+  }
+
+  async function saveCart(items) {
+    return storageSet({ [CART_KEY]: items || [] });
+  }
+
+  function buildCartItemKey(item) {
+    return `${item.url || ''}::${(item.name || '').toLowerCase()}`;
+  }
+
+  async function addCurrentToCart() {
+    if (!currentAlternatives || !currentAlternatives[currentIndex]) return;
+    const current = currentAlternatives[currentIndex];
+    const items = await loadCart();
+    const existingKeys = new Set(items.map(buildCartItemKey));
+    const cand = {
+      name: current.name || 'Alternative',
+      url: current.url || '',
+      image: current.image || '',
+      score: Array.isArray(altScores) && typeof altScores[currentIndex] === 'number' ? altScores[currentIndex] : null
+    };
+    const key = buildCartItemKey(cand);
+    if (!existingKeys.has(key)) {
+      items.push(cand);
+      await saveCart(items);
+    }
+  }
+
+  async function renderCartView() {
+    const cartContainer = document.querySelector('.cart-view');
+    const cartList = document.querySelector('.cart-list');
+    const swipeInterface = document.querySelector('.swipe-interface');
+    const actions = document.querySelector('.ecoscore-actions');
+    const altSummary = document.querySelector('.alt-summary');
+    if (!cartContainer || !cartList) return;
+    const items = await loadCart();
+    cartList.innerHTML = '';
+    for (const it of items) {
+      const row = document.createElement('div');
+      row.className = 'cart-item';
+      const img = document.createElement('img');
+      const src = it.image ? it.image.replace(/^http:/, 'https:') : (it.url ? buildFaviconUrlFrom(it.url) : '');
+      if (src) img.src = src;
+      const name = document.createElement('div');
+      name.className = 'cart-item-name';
+      name.textContent = (it.name || (it.url || 'Item')) + (it.price ? ` — ${it.price}` : '');
+      row.appendChild(img);
+      row.appendChild(name);
+      if (it.url) {
+        row.addEventListener('click', () => {
+          try { browser.tabs.create({ url: it.url }); } catch (e) {
+            try { chrome.tabs.create({ url: it.url }); } catch (e2) {}
+          }
+        });
+      }
+      cartList.appendChild(row);
+    }
+    cartContainer.style.display = 'block';
+    if (swipeInterface) swipeInterface.style.display = 'none';
+    if (actions) actions.style.display = 'none';
+    if (altSummary) altSummary.style.display = 'none';
+  }
+
+  function hideCartView() {
+    const cartContainer = document.querySelector('.cart-view');
+    const swipeInterface = document.querySelector('.swipe-interface');
+    const actions = document.querySelector('.ecoscore-actions');
+    const altSummary = document.querySelector('.alt-summary');
+    if (cartContainer) cartContainer.style.display = 'none';
+    if (swipeInterface) swipeInterface.style.display = 'flex';
+    if (altSummary) altSummary.style.display = 'block';
+    if (actions) actions.style.display = 'block';
+  }
+
   async function onFindEcoAlternativesClick(name, link) {
     try {
       const swipeInterface = document.querySelector('.swipe-interface');
@@ -371,43 +548,25 @@ document.addEventListener('DOMContentLoaded', function() {
         if (r) r.style.display = 'flex';
       } catch (_) {}
 
-      setEcoScaleText('Finding alternatives...');
-      const altPayload = { product: { name, link }, limit: 5, model: 'gpt-4o-mini' };
-      const altRes = await fetch(`${BASE_URL}/search`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(altPayload)
-      });
-      const altRaw = await altRes.text();
-      console.log('[EcoCart] /search (find-eco) raw body:', altRaw);
-      if (!altRes.ok) throw new Error(`alt search failed: ${altRes.status}`);
-      let altData;
-      try { altData = JSON.parse(altRaw); } catch (_) { throw new Error('alt non-JSON'); }
-
-      const altSummary = document.querySelector('.alt-summary');
-      const altNameEl = document.querySelector('.alt-name');
-      const altScoreEl = document.querySelector('.alt-ecoscore');
-      if (altSummary && altNameEl && altScoreEl) {
-        altSummary.style.display = 'block';
-        const alts = Array.isArray(altData.results) ? altData.results.slice(0, totalPanels) : [];
-        if (alts.length > 0) {
-          activePageUrl = link || '';
-          activeOriginalName = name || '';
-          activeOriginalLink = link || '';
-          currentAlternatives = alts;
-          altScores = new Array(alts.length).fill(null);
-          await renderAlternativesIntoPanels(currentAlternatives);
-          currentIndex = 0;
-          updateContentPositions();
-          await onIndexChanged();
-          await savePageState(activePageUrl, {
-            stage: 'alternatives',
-            product: { name: activeOriginalName, link: activeOriginalLink },
-            alternatives: currentAlternatives,
-            altScores,
-            currentIndex
-          });
-        }
+      // If we already prefetched, use it; otherwise, if fetching, await; else fetch now
+      let altData = prefetchedAltData;
+      if (!altData && alternativesFetchPromise) {
+        setEcoScaleText('Loading Alternatives...');
+        try { altData = await alternativesFetchPromise; } catch (_) { altData = null; }
+      }
+      if (!altData) {
+        setEcoScaleText('Loading Alternatives...');
+        const altPayload = { product: { name, link }, limit: 3, model: 'gpt-4o-mini' };
+        const altRes = await fetch(`${BASE_URL}/search`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(altPayload)
+        });
+        const altRaw = await altRes.text();
+        console.log('[EcoCart] /search (find-eco) raw body:', altRaw);
+        if (!altRes.ok) throw new Error(`alt search failed: ${altRes.status}`);
+        try { altData = JSON.parse(altRaw); prefetchedAltData = altData; } catch (_) { throw new Error('alt non-JSON'); }
+      }
+      if (altData) {
+        await handleAlternativesData(altData, name, link);
       }
 
       const addToCart = document.querySelector('.add-to-cart-section');
@@ -438,6 +597,53 @@ document.addEventListener('DOMContentLoaded', function() {
         item.innerHTML = '';
       }
     }
+  }
+
+  async function handleAlternativesData(altData, name, link) {
+    const altSummary = document.querySelector('.alt-summary');
+    const altNameEl = document.querySelector('.alt-name');
+    const altScoreEl = document.querySelector('.alt-ecoscore');
+    if (!(altSummary && altNameEl && altScoreEl)) return;
+    altSummary.style.display = 'block';
+    const alts = Array.isArray(altData.results) ? altData.results.slice(0, Math.min(totalPanels, 3)) : [];
+    if (alts.length === 0) return;
+    activePageUrl = link || '';
+    activeOriginalName = name || '';
+    activeOriginalLink = link || '';
+    currentAlternatives = alts;
+    altScores = new Array(alts.length).fill(null);
+    await renderAlternativesIntoPanels(currentAlternatives);
+    currentIndex = 0;
+    updateContentPositions();
+    await onIndexChanged();
+    await savePageState(activePageUrl, {
+      stage: 'alternatives',
+      product: { name: activeOriginalName, link: activeOriginalLink },
+      alternatives: currentAlternatives,
+      altScores,
+      currentIndex
+    });
+  }
+
+  function prefetchAlternatives(name, link) {
+    if (alternativesFetchPromise) return alternativesFetchPromise;
+    const altPayload = { product: { name, link }, limit: 3, model: 'gpt-4o-mini' };
+    alternativesFetchPromise = fetch(`${BASE_URL}/search`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(altPayload)
+    }).then(async (r) => {
+      const t = await r.text();
+      if (!r.ok) throw new Error(`prefetch failed ${r.status}`);
+      let data; try { data = JSON.parse(t); } catch (_) { throw new Error('prefetch non-JSON'); }
+      prefetchedAltData = data;
+      alternativesFetchPromise = null;
+      return data;
+    }).catch((e) => {
+      console.warn('[EcoCart] prefetch alternatives failed:', e);
+      alternativesFetchPromise = null;
+      prefetchedAltData = null;
+      return null;
+    });
+    return alternativesFetchPromise;
   }
 
   async function updateEcoScoreForIndex(index, originalName, originalLink) {
@@ -491,24 +697,27 @@ document.addEventListener('DOMContentLoaded', function() {
     const altSummary = document.querySelector('.alt-summary');
     const altNameEl = document.querySelector('.alt-name');
     const altScoreEl = document.querySelector('.alt-ecoscore');
+    let altPriceEl = document.querySelector('.alt-price');
+    if (!altPriceEl) {
+      altPriceEl = document.createElement('div');
+      altPriceEl.className = 'alt-price';
+      altPriceEl.style.color = '#ffffff';
+      altPriceEl.style.fontSize = '16px';
+      altPriceEl.style.opacity = '0.95';
+      altSummary && altSummary.appendChild(altPriceEl);
+    }
     if (altSummary) altSummary.style.display = 'block';
     const activeCount = getActivePanelCount();
     if (!currentAlternatives || activeCount === 0) return;
     const current = currentAlternatives[currentIndex];
     if (altNameEl) altNameEl.textContent = current && current.name ? current.name : 'Alternative';
-    // Update right arrow to open current URL
+    if (altPriceEl) altPriceEl.textContent = current && current.price ? `Price: ${current.price}` : '';
+    // Update right arrow: add to EcoCart
     if (rightArrow) {
-      if (current && current.url) {
-        rightArrow.style.cursor = 'pointer';
-        rightArrow.onclick = () => {
-          try { browser.tabs.create({ url: current.url }); } catch (e) {
-            try { chrome.tabs.create({ url: current.url }); } catch (e2) {}
-          }
-        };
-      } else {
-        rightArrow.style.cursor = 'default';
-        rightArrow.onclick = null;
-      }
+      rightArrow.style.cursor = 'pointer';
+      rightArrow.onclick = async () => {
+        await addCurrentToCart();
+      };
     }
     // Show cached score or compute
     if (Array.isArray(altScores) && typeof altScores[currentIndex] === 'number') {
@@ -660,7 +869,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
   
-  // Left arrow hover effect (red arrow - swipe left)
+  // Left arrow hover effect (red arrow - skip)
   if (leftArrow && productPanel) {
     leftArrow.addEventListener('mouseenter', function() {
       productPanel.style.transition = 'none';
@@ -671,9 +880,9 @@ document.addEventListener('DOMContentLoaded', function() {
       smoothReturn();
     });
     
-    // Left arrow click effect
+    // Left arrow click effect (skip current → go to next)
     leftArrow.addEventListener('click', function() {
-      slideToPrev();
+      slideToNext();
     });
   }
   
@@ -688,9 +897,33 @@ document.addEventListener('DOMContentLoaded', function() {
       smoothReturn();
     });
     
-    // Right arrow click effect
-    rightArrow.addEventListener('click', function() {
+    // Right arrow click effect (save to cart, then slide)
+    rightArrow.addEventListener('click', async function() {
+      await addCurrentToCart();
       slideToNext();
+    });
+  }
+
+  if (viewCartBtn) {
+    viewCartBtn.addEventListener('click', async function() {
+      await renderCartView();
+    });
+  }
+
+  // Back button inside cart view
+  const cartBackBtn = document.querySelector('.cart-back-btn');
+  if (cartBackBtn) {
+    cartBackBtn.addEventListener('click', function() {
+      hideCartView();
+    });
+  }
+
+  // Clear cart button
+  const cartClearBtn = document.querySelector('.cart-clear-btn');
+  if (cartClearBtn) {
+    cartClearBtn.addEventListener('click', async function() {
+      await saveCart([]);
+      await renderCartView();
     });
   }
   
