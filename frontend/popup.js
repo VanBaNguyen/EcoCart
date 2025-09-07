@@ -263,7 +263,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     console.log('[EcoCart] Proceeding with Amazon product:', { name: title || 'Current Page', link: url });
-    judgeOnly(title || 'Current Page', url);
+    const productName = title || 'Current Page';
+    try { prefetchAlternatives(productName, url); } catch (_) {}
+    judgeOnly(productName, url);
   })();
   
   const productPanel = document.querySelector('.product-panel');
@@ -279,6 +281,8 @@ document.addEventListener('DOMContentLoaded', function() {
   let activeOriginalLink = '';
   let currentAlternatives = null;
   let altScores = [];
+  let alternativesFetchPromise = null;
+  let prefetchedAltData = null;
   
   // Smooth animation function
   function smoothReturn() {
@@ -544,43 +548,25 @@ document.addEventListener('DOMContentLoaded', function() {
         if (r) r.style.display = 'flex';
       } catch (_) {}
 
-      setEcoScaleText('Finding alternatives...');
-      const altPayload = { product: { name, link }, limit: 3, model: 'gpt-4o-mini' };
-      const altRes = await fetch(`${BASE_URL}/search`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(altPayload)
-      });
-      const altRaw = await altRes.text();
-      console.log('[EcoCart] /search (find-eco) raw body:', altRaw);
-      if (!altRes.ok) throw new Error(`alt search failed: ${altRes.status}`);
-      let altData;
-      try { altData = JSON.parse(altRaw); } catch (_) { throw new Error('alt non-JSON'); }
-
-      const altSummary = document.querySelector('.alt-summary');
-      const altNameEl = document.querySelector('.alt-name');
-      const altScoreEl = document.querySelector('.alt-ecoscore');
-      if (altSummary && altNameEl && altScoreEl) {
-        altSummary.style.display = 'block';
-        const alts = Array.isArray(altData.results) ? altData.results.slice(0, Math.min(totalPanels, 3)) : [];
-        if (alts.length > 0) {
-          activePageUrl = link || '';
-          activeOriginalName = name || '';
-          activeOriginalLink = link || '';
-          currentAlternatives = alts;
-          altScores = new Array(alts.length).fill(null);
-          await renderAlternativesIntoPanels(currentAlternatives);
-          currentIndex = 0;
-          updateContentPositions();
-          await onIndexChanged();
-          await savePageState(activePageUrl, {
-            stage: 'alternatives',
-            product: { name: activeOriginalName, link: activeOriginalLink },
-            alternatives: currentAlternatives,
-            altScores,
-            currentIndex
-          });
-        }
+      // If we already prefetched, use it; otherwise, if fetching, await; else fetch now
+      let altData = prefetchedAltData;
+      if (!altData && alternativesFetchPromise) {
+        setEcoScaleText('Loading Alternatives...');
+        try { altData = await alternativesFetchPromise; } catch (_) { altData = null; }
+      }
+      if (!altData) {
+        setEcoScaleText('Loading Alternatives...');
+        const altPayload = { product: { name, link }, limit: 3, model: 'gpt-4o-mini' };
+        const altRes = await fetch(`${BASE_URL}/search`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(altPayload)
+        });
+        const altRaw = await altRes.text();
+        console.log('[EcoCart] /search (find-eco) raw body:', altRaw);
+        if (!altRes.ok) throw new Error(`alt search failed: ${altRes.status}`);
+        try { altData = JSON.parse(altRaw); prefetchedAltData = altData; } catch (_) { throw new Error('alt non-JSON'); }
+      }
+      if (altData) {
+        await handleAlternativesData(altData, name, link);
       }
 
       const addToCart = document.querySelector('.add-to-cart-section');
@@ -611,6 +597,53 @@ document.addEventListener('DOMContentLoaded', function() {
         item.innerHTML = '';
       }
     }
+  }
+
+  async function handleAlternativesData(altData, name, link) {
+    const altSummary = document.querySelector('.alt-summary');
+    const altNameEl = document.querySelector('.alt-name');
+    const altScoreEl = document.querySelector('.alt-ecoscore');
+    if (!(altSummary && altNameEl && altScoreEl)) return;
+    altSummary.style.display = 'block';
+    const alts = Array.isArray(altData.results) ? altData.results.slice(0, Math.min(totalPanels, 3)) : [];
+    if (alts.length === 0) return;
+    activePageUrl = link || '';
+    activeOriginalName = name || '';
+    activeOriginalLink = link || '';
+    currentAlternatives = alts;
+    altScores = new Array(alts.length).fill(null);
+    await renderAlternativesIntoPanels(currentAlternatives);
+    currentIndex = 0;
+    updateContentPositions();
+    await onIndexChanged();
+    await savePageState(activePageUrl, {
+      stage: 'alternatives',
+      product: { name: activeOriginalName, link: activeOriginalLink },
+      alternatives: currentAlternatives,
+      altScores,
+      currentIndex
+    });
+  }
+
+  function prefetchAlternatives(name, link) {
+    if (alternativesFetchPromise) return alternativesFetchPromise;
+    const altPayload = { product: { name, link }, limit: 3, model: 'gpt-4o-mini' };
+    alternativesFetchPromise = fetch(`${BASE_URL}/search`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(altPayload)
+    }).then(async (r) => {
+      const t = await r.text();
+      if (!r.ok) throw new Error(`prefetch failed ${r.status}`);
+      let data; try { data = JSON.parse(t); } catch (_) { throw new Error('prefetch non-JSON'); }
+      prefetchedAltData = data;
+      alternativesFetchPromise = null;
+      return data;
+    }).catch((e) => {
+      console.warn('[EcoCart] prefetch alternatives failed:', e);
+      alternativesFetchPromise = null;
+      prefetchedAltData = null;
+      return null;
+    });
+    return alternativesFetchPromise;
   }
 
   async function updateEcoScoreForIndex(index, originalName, originalLink) {

@@ -474,18 +474,11 @@ def search() -> Tuple[str, int]:
                 judge_text = ""
         print("=== OpenAI judge output_text ===")
         print(judge_text)
-        impact_label = parse_impact_label(judge_text or "")  # kept for compatibility in response
+        impact_label = parse_impact_label(judge_text or "")
         ecoscore_val = parse_ecoscore_from_text(judge_text or "")
-        # Heuristic nudge based on material hints
-        material_hint = infer_material_hint(product_name, product_link)
-        print(f"=== Material hint: {material_hint} ===")
-        if material_hint == "paper_straw":
-            impact_label = "Low"
-        elif material_hint == "plastic" and impact_label == "Medium":
-            impact_label = "High"
+        # If the model didn't return a numeric ecoscore, fall back to label mapping only
         if ecoscore_val <= 0.0:
             ecoscore_val = ecoscore_from_impact(impact_label)
-        ecoscore_val = apply_material_heuristics_to_ecoscore(ecoscore_val, material_hint)
 
         # Early return if ecoscore is good enough
         if ecoscore_val >= 3.0:
@@ -668,10 +661,8 @@ def judge() -> Tuple[str, int]:
     impact = parse_impact_label(output_text or "")
 
     ecoscore_val = parse_ecoscore_from_text(output_text or "")
-    material_hint = infer_material_hint(product_name, product_link)
     if ecoscore_val <= 0.0:
         ecoscore_val = ecoscore_from_impact(impact)
-    ecoscore_val = apply_material_heuristics_to_ecoscore(ecoscore_val, material_hint)
 
     return jsonify({
         "product": {"name": product_name, "link": product_link},
