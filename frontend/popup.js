@@ -230,6 +230,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const productPanel = document.querySelector('.product-panel');
   const leftArrow = document.querySelector('.left-arrow');
   const rightArrow = document.querySelector('.right-arrow');
+  const viewCartBtn = document.getElementById('view-cart-btn');
   const contentPanels = document.querySelectorAll('.product-content');
   
   let currentIndex = 0;
@@ -309,6 +310,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // -------- Persistent state across popup sessions --------
   const STORAGE_KEY = 'ecocart_page_states';
+  const CART_KEY = 'ecocart_cart_items';
   function storageGet(key) {
     return new Promise((resolve) => {
       try {
@@ -353,6 +355,83 @@ document.addEventListener('DOMContentLoaded', function() {
     const map = await loadAllStates();
     map[getPageKey(pageUrl)] = state;
     return saveAllStates(map);
+  }
+
+  async function loadCart() {
+    const data = await storageGet(CART_KEY);
+    return (data && data[CART_KEY]) || [];
+  }
+
+  async function saveCart(items) {
+    return storageSet({ [CART_KEY]: items || [] });
+  }
+
+  function buildCartItemKey(item) {
+    return `${item.url || ''}::${(item.name || '').toLowerCase()}`;
+  }
+
+  async function addCurrentToCart() {
+    if (!currentAlternatives || !currentAlternatives[currentIndex]) return;
+    const current = currentAlternatives[currentIndex];
+    const items = await loadCart();
+    const existingKeys = new Set(items.map(buildCartItemKey));
+    const cand = {
+      name: current.name || 'Alternative',
+      url: current.url || '',
+      image: current.image || '',
+      score: Array.isArray(altScores) && typeof altScores[currentIndex] === 'number' ? altScores[currentIndex] : null
+    };
+    const key = buildCartItemKey(cand);
+    if (!existingKeys.has(key)) {
+      items.push(cand);
+      await saveCart(items);
+    }
+  }
+
+  async function renderCartView() {
+    const cartContainer = document.querySelector('.cart-view');
+    const cartList = document.querySelector('.cart-list');
+    const swipeInterface = document.querySelector('.swipe-interface');
+    const actions = document.querySelector('.ecoscore-actions');
+    const altSummary = document.querySelector('.alt-summary');
+    if (!cartContainer || !cartList) return;
+    const items = await loadCart();
+    cartList.innerHTML = '';
+    for (const it of items) {
+      const row = document.createElement('div');
+      row.className = 'cart-item';
+      const img = document.createElement('img');
+      const src = it.image ? it.image.replace(/^http:/, 'https:') : (it.url ? buildFaviconUrlFrom(it.url) : '');
+      if (src) img.src = src;
+      const name = document.createElement('div');
+      name.className = 'cart-item-name';
+      name.textContent = it.name || (it.url || 'Item');
+      row.appendChild(img);
+      row.appendChild(name);
+      if (it.url) {
+        row.addEventListener('click', () => {
+          try { browser.tabs.create({ url: it.url }); } catch (e) {
+            try { chrome.tabs.create({ url: it.url }); } catch (e2) {}
+          }
+        });
+      }
+      cartList.appendChild(row);
+    }
+    cartContainer.style.display = 'block';
+    if (swipeInterface) swipeInterface.style.display = 'none';
+    if (actions) actions.style.display = 'none';
+    if (altSummary) altSummary.style.display = 'none';
+  }
+
+  function hideCartView() {
+    const cartContainer = document.querySelector('.cart-view');
+    const swipeInterface = document.querySelector('.swipe-interface');
+    const actions = document.querySelector('.ecoscore-actions');
+    const altSummary = document.querySelector('.alt-summary');
+    if (cartContainer) cartContainer.style.display = 'none';
+    if (swipeInterface) swipeInterface.style.display = 'flex';
+    if (altSummary) altSummary.style.display = 'block';
+    if (actions) actions.style.display = 'block';
   }
 
   async function onFindEcoAlternativesClick(name, link) {
@@ -496,19 +575,12 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!currentAlternatives || activeCount === 0) return;
     const current = currentAlternatives[currentIndex];
     if (altNameEl) altNameEl.textContent = current && current.name ? current.name : 'Alternative';
-    // Update right arrow to open current URL
+    // Update right arrow: add to EcoCart
     if (rightArrow) {
-      if (current && current.url) {
-        rightArrow.style.cursor = 'pointer';
-        rightArrow.onclick = () => {
-          try { browser.tabs.create({ url: current.url }); } catch (e) {
-            try { chrome.tabs.create({ url: current.url }); } catch (e2) {}
-          }
-        };
-      } else {
-        rightArrow.style.cursor = 'default';
-        rightArrow.onclick = null;
-      }
+      rightArrow.style.cursor = 'pointer';
+      rightArrow.onclick = async () => {
+        await addCurrentToCart();
+      };
     }
     // Show cached score or compute
     if (Array.isArray(altScores) && typeof altScores[currentIndex] === 'number') {
@@ -688,9 +760,24 @@ document.addEventListener('DOMContentLoaded', function() {
       smoothReturn();
     });
     
-    // Right arrow click effect
-    rightArrow.addEventListener('click', function() {
+    // Right arrow click effect (save to cart, then slide)
+    rightArrow.addEventListener('click', async function() {
+      await addCurrentToCart();
       slideToNext();
+    });
+  }
+
+  if (viewCartBtn) {
+    viewCartBtn.addEventListener('click', async function() {
+      await renderCartView();
+    });
+  }
+
+  // Back button inside cart view
+  const cartBackBtn = document.querySelector('.cart-back-btn');
+  if (cartBackBtn) {
+    cartBackBtn.addEventListener('click', function() {
+      hideCartView();
     });
   }
   
