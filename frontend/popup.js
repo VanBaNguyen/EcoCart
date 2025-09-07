@@ -272,6 +272,8 @@ document.addEventListener('DOMContentLoaded', function() {
   const leftArrow = document.querySelector('.left-arrow');
   const rightArrow = document.querySelector('.right-arrow');
   const viewCartBtn = document.getElementById('view-cart-btn');
+  const earthLogo = document.querySelector('.earth-logo');
+  const helpPopover = document.querySelector('.help-popover');
   const contentPanels = document.querySelectorAll('.product-content');
   
   let currentIndex = 0;
@@ -907,6 +909,36 @@ document.addEventListener('DOMContentLoaded', function() {
   if (viewCartBtn) {
     viewCartBtn.addEventListener('click', async function() {
       await renderCartView();
+    });
+  }
+
+  // Help popover toggle
+  function toggleHelpPopover(show) {
+    if (!helpPopover) return;
+    if (typeof show === 'boolean') {
+      helpPopover.style.display = show ? 'block' : 'none';
+    } else {
+      helpPopover.style.display = helpPopover.style.display === 'block' ? 'none' : 'block';
+    }
+  }
+
+  if (earthLogo && helpPopover) {
+    earthLogo.addEventListener('click', function(e) {
+      e.stopPropagation();
+      toggleHelpPopover();
+    });
+    // No explicit close button; rely on outside click and Escape
+    // Close on outside click
+    document.addEventListener('click', function(e) {
+      if (!helpPopover) return;
+      const target = e.target;
+      if (helpPopover.style.display === 'block' && target instanceof Node && !helpPopover.contains(target) && target !== earthLogo) {
+        toggleHelpPopover(false);
+      }
+    });
+    // Close on Escape
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') toggleHelpPopover(false);
     });
   }
 
