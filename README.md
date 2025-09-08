@@ -1,6 +1,6 @@
 # 🌱 EcoCart - Environmental Impact Browser Extension
 
-**Aiming for "🌱 Best AI for Environmental Impact" in AGI Ventures Canada's Hackathon 3.0**
+**Won "🌱 Best AI for Environmental Impact" in AGI Ventures Canada's Hackathon 3.0**
 
 EcoCart is an innovative browser extension that helps users make environmentally conscious shopping decisions by analyzing products and suggesting sustainable alternatives. Built with AI-powered environmental impact assessment, EcoCart transforms your shopping experience into a force for positive environmental change.
 
@@ -9,38 +9,12 @@ EcoCart is an innovative browser extension that helps users make environmentally
 ### 🔍 **Smart Environmental Analysis**
 - **EcoScore Rating**: AI-powered environmental impact scoring from 1.0 (worst) to 5.0 (best)
 - **Real-time Product Assessment**: Instant analysis of products on Amazon and other supported sites
-- **Material Recognition**: Advanced detection of sustainable materials (paper, bamboo, metal, glass, etc.)
 
 ### 🛒 **Intelligent Alternative Suggestions**
 - **AI-Powered Search**: Find environmentally friendlier alternatives using advanced web search
 - **Amazon Integration**: Seamless integration with Amazon's global marketplaces
 - **Price Comparison**: Compare prices alongside environmental impact
 - **Image Preview**: Visual product previews with automatic image extraction
-
-### 🎯 **Interactive Shopping Experience**
-- **Swipe Interface**: Tinder-like interface to browse eco-friendly alternatives
-- **Smart Cart**: Build your eco-friendly shopping cart with persistent storage
-- **Visual Feedback**: Color-coded environmental impact indicators
-- **Persistent State**: Remembers your browsing session across popup opens
-
-### 🌍 **Environmental Impact Focus**
-- **Sustainability Metrics**: Comprehensive evaluation of materials, reusability, and lifecycle
-- **Certification Recognition**: Identifies credible sustainability certifications
-- **Waste Reduction**: Promotes reusable, recyclable, and compostable alternatives
-- **Educational Tool**: Learn about environmental impact through interactive scoring
-
-## 🏗️ Architecture
-
-### Backend (Flask API)
-- **AI Integration**: OpenAI GPT models for environmental analysis and product search
-- **Image Processing**: Automatic product image extraction and proxy serving
-- **CORS Support**: Cross-origin resource sharing for browser extension compatibility
-
-### Frontend (Browser Extension)
-- **Cross-Browser Support**: Compatible with Firefox browsers
-- **Modern UI**: Beautiful, responsive interface with smooth animations
-- **Local Storage**: Persistent cart and session management
-- **Real-time Updates**: Dynamic content loading and state management
 
 ## 🚀 Quick Start
 
@@ -191,29 +165,8 @@ EcoCart/
 ### Key Technologies
 - **Backend**: Flask, OpenAI API, BeautifulSoup, Requests
 - **Frontend**: Vanilla JavaScript, HTML5, CSS3
-- **AI Models**: GPT-4o-mini for environmental analysis
+- **AI Models**: GPT-5 for environmental analysis
 - **Storage**: Browser extension local storage API
-
-## 🤝 Contributing
-
-We welcome contributions to make EcoCart even more impactful:
-
-1. **Fork the repository**
-2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
-3. **Commit changes**: `git commit -m 'Add amazing feature'`
-4. **Push to branch**: `git push origin feature/amazing-feature`
-5. **Open a Pull Request**
-
-### Areas for Contribution
-- Additional e-commerce platform support
-- Enhanced AI model integration
-- Improved environmental impact metrics
-- UI/UX enhancements
-- Performance optimizations
-
-## 📄 License
-
-This project is developed for AGI Ventures Canada's Hackathon 3.0. Please refer to the hackathon guidelines for usage and distribution terms.
 
 ## 🏆 Hackathon Goals
 
@@ -230,3 +183,4 @@ EcoCart demonstrates how AI can be harnessed to create meaningful environmental 
 **Built with ❤️ for a sustainable future**
 
 *EcoCart - Where every purchase is a vote for the planet* 🌍
+
